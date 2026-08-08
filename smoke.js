@@ -60,6 +60,11 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(D.querySelectorAll('#chapterBody .ichart').length > 0,
      '教材正文的命例盘转成了可吸顶的紧凑盘，共 ' + D.querySelectorAll('#chapterBody .ichart').length + ' 个');
   ok(D.querySelector('#chapterBody .ichart .c.day') !== null, '正文盘也标出日柱');
+  // 五行上色：甲=木 丙=火 戊=土 庚=金 壬=水
+  const wxOK = ['甲','乙','寅','卯'].every(c => /w-mu/.test(
+    (D.querySelector('#chapterBody').innerHTML.match(new RegExp('<span class="[ab] w-\\w+">'+c+'</span>'))||[''])[0] || 'w-mu'));
+  ok(D.querySelectorAll('#chapterBody .w-mu, #chapterBody .w-huo, #chapterBody .w-tu, #chapterBody .w-jin, #chapterBody .w-shui').length > 20,
+     '干支已按五行上色，共 ' + D.querySelectorAll('#chapterBody [class*="w-"]').length + ' 字');
   ok($('#btnBack').classList.contains('show'), '返回键出现');
 
   console.log('\n— 路由（套壳侧滑的关键）—');
@@ -83,6 +88,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '单盘题：题头不再画大盘（避免同一个盘出现两次）');
   ok($('#stickyChart').querySelectorAll('.c').length === 4, '单盘题：吸顶条 4 柱');
   ok($('#stickyChart').querySelector('.c.day .a').textContent === '丙', '日柱标在第3柱(丙午)');
+  ok($('#stickyChart').querySelector('.c.day .a').className === 'a w-huo', '吸顶条丙字上火色');
+  ok($('#stickyChart').querySelector('.c.day .b').className === 'b w-huo', '吸顶条午字上火色');
   ok(/坤造/.test($('#stickyChart').innerHTML), '单盘题：性别标记挪进吸顶条');
   ok(D.querySelectorAll('#quizBody .ichart').length === 0,
      '单盘题：盘不在正文里重复（只在题头吸顶条）');

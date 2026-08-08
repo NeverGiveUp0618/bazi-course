@@ -9,6 +9,14 @@
   --shadow:0 1px 3px rgba(60,50,30,.10), 0 6px 18px rgba(60,50,30,.06);
   --radius:14px;
   --tabh:56px;
+
+  /* 五行本色。⚠️ 金的白、水的黑在浅底上都不可读，按传统意象取变体：
+     金→暗金褐，水→玄（深蓝黑）。深色主题里再各自提亮。 */
+  --wx-mu:#2e7d5b;    /* 木 · 青 */
+  --wx-huo:#c0392b;   /* 火 · 赤 */
+  --wx-tu:#a06d1f;    /* 土 · 黄 */
+  --wx-jin:#8a7433;   /* 金 · 暗金 */
+  --wx-shui:#1f4e79;  /* 水 · 玄 */
 }
 @media (prefers-color-scheme:dark){
   :root{
@@ -17,6 +25,8 @@
     --indigo:#6fb0d4; --indigo2:#8cc4e2; --indigo-soft:#1c2e3a;
     --cinnabar:#e08066; --gold:#d0a54e;
     --ok:#6fbe84; --warn:#d9a24e;
+    --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#d9a94e;
+    --wx-jin:#d8cb95; --wx-shui:#6fa8dc;
     --shadow:0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
   }
 }
@@ -26,6 +36,8 @@
   --indigo:#1f5673; --indigo2:#2d7396; --indigo-soft:#e3edf3;
   --cinnabar:#b8482e; --gold:#a8802a; --ok:#3f7a4d; --warn:#b0741e;
   --shadow:0 1px 3px rgba(60,50,30,.10), 0 6px 18px rgba(60,50,30,.06);
+  --wx-mu:#2e7d5b; --wx-huo:#c0392b; --wx-tu:#a06d1f;
+  --wx-jin:#8a7433; --wx-shui:#1f4e79;
 }
 :root[data-theme="dark"]{
   --bg:#16191c; --bg2:#1b1f23; --card:#212629; --line:#333a3f;
@@ -33,6 +45,8 @@
   --indigo:#6fb0d4; --indigo2:#8cc4e2; --indigo-soft:#1c2e3a;
   --cinnabar:#e08066; --gold:#d0a54e; --ok:#6fbe84; --warn:#d9a24e;
   --shadow:0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
+  --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#d9a94e;
+  --wx-jin:#d8cb95; --wx-shui:#6fa8dc;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -210,8 +224,11 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .doc .ichart .c .a,.doc .ichart .c .b{
   font-family:Georgia,"Songti SC",serif; font-size:19px; line-height:1.25; font-weight:600
 }
-.doc .ichart .c .a{color:var(--cinnabar)}
-.doc .ichart .c .b{color:var(--indigo)}
+.doc .ichart .c .a,.doc .ichart .c .b{display:block}
+
+/* 五行本色（干支通用） */
+.w-mu{color:var(--wx-mu)}   .w-huo{color:var(--wx-huo)}  .w-tu{color:var(--wx-tu)}
+.w-jin{color:var(--wx-jin)} .w-shui{color:var(--wx-shui)}
 .doc .ichart .c.day{
   background:var(--indigo-soft); border-radius:6px; box-shadow:0 0 0 1px var(--line)
 }
@@ -286,8 +303,7 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .sticky-chart .c .a,.sticky-chart .c .b{
   font-family:Georgia,"Songti SC",serif; font-size:19px; line-height:1.25; font-weight:600
 }
-.sticky-chart .c .a{color:var(--cinnabar)}
-.sticky-chart .c .b{color:var(--indigo)}
+.sticky-chart .c .a,.sticky-chart .c .b{display:block}
 /* 日柱标出来——断命一切从日主起 */
 .sticky-chart .c.day{
   background:var(--indigo-soft); border-radius:6px; box-shadow:0 0 0 1px var(--line)

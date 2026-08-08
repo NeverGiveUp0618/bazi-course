@@ -120,6 +120,17 @@ function esc(s) {
   });
 }
 
+/* 干支按五行上色。⚠️ 这份映射必须与 mdlite.py 的 _WUXING 保持一致，
+   否则同一个字在吸顶条和正文里会是两种颜色。 */
+var WX = {};
+[['甲乙寅卯', 'mu'], ['丙丁巳午', 'huo'], ['戊己辰戌丑未', 'tu'],
+ ['庚辛申酉', 'jin'], ['壬癸亥子', 'shui']].forEach(function (p) {
+  p[0].split('').forEach(function (c) { WX[c] = p[1]; });
+});
+function gz(c, cls) {
+  return '<span class="' + cls + (WX[c] ? ' w-' + WX[c] : '') + '">' + esc(c) + '</span>';
+}
+
 /* ---------- 首页 ---------- */
 RENDER.home = function () {
   var c = META.counts || {};
@@ -410,8 +421,7 @@ function setupSticky(it) {
       '<div class="cols">' + pos.map(function (p, i) {
         return '<div class="c' + (i === 2 ? ' day' : '') + '">' +
           '<div class="p">' + p + '</div>' +
-          '<div class="a">' + esc(c.gan[i]) + '</div>' +
-          '<div class="b">' + esc(c.zhi[i]) + '</div></div>';
+          gz(c.gan[i], 'a') + gz(c.zhi[i], 'b') + '</div>';
       }).join('') + '</div></div>';
   }).join('');
 

@@ -54,6 +54,24 @@ _TABLE_SEP = re.compile(r'^\s*\|[\s:|-]+\|\s*$')
 
 _PILLARS = ['年', '月', '日', '时']
 
+# 干支 → 五行，用来上色。用户要求「按五行本色看」，比按干支分色好认。
+_WUXING = {}
+for _ch, _w in (('甲乙寅卯', 'mu'), ('丙丁巳午', 'huo'), ('戊己辰戌丑未', 'tu'),
+                ('庚辛申酉', 'jin'), ('壬癸亥子', 'shui')):
+    for _c in _ch:
+        _WUXING[_c] = _w
+
+
+def wx(c):
+    """返回该字的五行 class 后缀；认不出返回空串。"""
+    return _WUXING.get(c, '')
+
+
+def gz_span(c, cls):
+    w = wx(c)
+    return '<span class="%s%s">%s</span>' % (
+        cls, (' w-' + w) if w else '', _html.escape(c))
+
 
 def _four_pillar(head, body):
     """把「空|年|月|日|时」这种四柱表渲染成紧凑盘，好让它在正文里吸顶。
@@ -73,13 +91,53 @@ def _four_pillar(head, body):
     if not all(gan) or not all(zhi):
         return None
     label = body[0][0].replace('**', '').strip('（）() ') or ''
+    return render_chart(gan, zhi, label)
+
+
+def render_chart(gan, zhi, label=''):
+    """四柱盘的统一 HTML。app.js 里的吸顶条用同一套结构与 class。"""
     cols = ''.join(
-        '<div class="c%s"><div class="p">%s</div><div class="a">%s</div>'
-        '<div class="b">%s</div></div>'
-        % (' day' if k == 2 else '', p, _html.escape(gan[k]), _html.escape(zhi[k]))
+        '<div class="c%s"><div class="p">%s</div>%s%s</div>'
+        % (' day' if k == 2 else '', p, gz_span(gan[k], 'a'), gz_span(zhi[k], 'b'))
         for k, p in enumerate(_PILLARS))
     lb = ('<span class="lb">%s造</span>' % _html.escape(label)) if label else ''
     return '<div class="ichart">%s<div class="cols">%s</div></div>' % (lb, cols)
+
+
+_GAN = '甲乙丙丁戊己庚辛壬癸'
+_ZHI = '子丑寅卯辰巳午未申酉戌亥'
+# 行内简写盘：（辛丁**丙**己／亥酉**辰**亥）——加粗的是日主，斜杠可能是全角或半角
+_INLINE_CHART = re.compile(
+    r'[（(]\s*((?:\*{0,2}[' + _GAN + r']\*{0,2}\s*){4})\s*[／/]\s*'
+    r'((?:\*{0,2}[' + _ZHI + r']\*{0,2}\s*){4})\s*[）)]')
+
+
+def _lift_inline_chart(para):
+    """把段落里的行内简写盘提升成块级四柱盘。
+
+    原文这类盘写成「**丙火日主**（辛丁**丙**己／亥酉**辰**亥）。**辛＝正财**…」，
+    八个字连排还要自己数哪柱是哪柱，很难认。提成正规盘后前后文字自然断成两段：
+    先说日主 → 看盘 → 再讲十神，读起来反而更顺。
+    返回 [(kind, text)] 序列，kind 为 'p' 或 'chart'。
+    """
+    out = []
+    last = 0
+    for m in _INLINE_CHART.finditer(para):
+        pick = lambda s: [c for c in s if c not in '*' and not c.isspace()]
+        gan, zhi = pick(m.group(1)), pick(m.group(2))
+        if len(gan) != 4 or len(zhi) != 4:
+            continue
+        head = para[last:m.start()].rstrip('：: 　')
+        if head.strip():
+            out.append(('p', head))
+        out.append(('chart', render_chart(gan, zhi)))
+        last = m.end()
+    if not out:
+        return None
+    tail = para[last:].lstrip('。，、 　')
+    if tail.strip():
+        out.append(('p', tail))
+    return out
 
 
 def _cells(line):
@@ -208,7 +266,14 @@ def md2html(text, heading_offset=0, collect_headings=None):
                 _UL.match(lines[i]) or _OL.match(lines[i])):
             buf.append(lines[i])
             i += 1
-        out.append('<p>' + _inline('<br>'.join(buf)).replace('&lt;br&gt;', '<br>') + '</p>')
+        para = '<br>'.join(buf)
+        parts = _lift_inline_chart(para)
+        if parts:
+            for kind, txt in parts:
+                out.append(txt if kind == 'chart'
+                           else '<p>' + _inline(txt).replace('&lt;br&gt;', '<br>') + '</p>')
+        else:
+            out.append('<p>' + _inline(para).replace('&lt;br&gt;', '<br>') + '</p>')
 
     return '\n'.join(out)
 
