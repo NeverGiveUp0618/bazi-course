@@ -14,8 +14,8 @@
      金→暗金褐，水→玄（深蓝黑）。深色主题里再各自提亮。 */
   --wx-mu:#2e7d5b;    /* 木 · 青 */
   --wx-huo:#c0392b;   /* 火 · 赤 */
-  --wx-tu:#a06d1f;    /* 土 · 黄 */
-  --wx-jin:#8a7433;   /* 金 · 暗金 */
+  --wx-tu:#7a4a24;    /* 土 · 棕 */
+  --wx-jin:#a06d1f;   /* 金 · 金黄 */
   --wx-shui:#1f4e79;  /* 水 · 玄 */
 }
 @media (prefers-color-scheme:dark){
@@ -25,8 +25,8 @@
     --indigo:#6fb0d4; --indigo2:#8cc4e2; --indigo-soft:#1c2e3a;
     --cinnabar:#e08066; --gold:#d0a54e;
     --ok:#6fbe84; --warn:#d9a24e;
-    --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#d9a94e;
-    --wx-jin:#d8cb95; --wx-shui:#6fa8dc;
+    --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#b07d54;
+    --wx-jin:#d9a94e; --wx-shui:#6fa8dc;
     --shadow:0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
   }
 }
@@ -36,8 +36,8 @@
   --indigo:#1f5673; --indigo2:#2d7396; --indigo-soft:#e3edf3;
   --cinnabar:#b8482e; --gold:#a8802a; --ok:#3f7a4d; --warn:#b0741e;
   --shadow:0 1px 3px rgba(60,50,30,.10), 0 6px 18px rgba(60,50,30,.06);
-  --wx-mu:#2e7d5b; --wx-huo:#c0392b; --wx-tu:#a06d1f;
-  --wx-jin:#8a7433; --wx-shui:#1f4e79;
+  --wx-mu:#2e7d5b; --wx-huo:#c0392b; --wx-tu:#7a4a24;
+  --wx-jin:#a06d1f; --wx-shui:#1f4e79;
 }
 :root[data-theme="dark"]{
   --bg:#16191c; --bg2:#1b1f23; --card:#212629; --line:#333a3f;
@@ -45,8 +45,8 @@
   --indigo:#6fb0d4; --indigo2:#8cc4e2; --indigo-soft:#1c2e3a;
   --cinnabar:#e08066; --gold:#d0a54e; --ok:#6fbe84; --warn:#d9a24e;
   --shadow:0 1px 3px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.25);
-  --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#d9a94e;
-  --wx-jin:#d8cb95; --wx-shui:#6fa8dc;
+  --wx-mu:#5fbf8f; --wx-huo:#e8705f; --wx-tu:#b07d54;
+  --wx-jin:#d9a94e; --wx-shui:#6fa8dc;
 }
 
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
