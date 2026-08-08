@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=5">
+<title>八字精讲</title>
+<meta name="description" content="实用八字系统教材、笔记与命例题库">
+<meta name="theme-color" content="#1f5673">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <button class="back" id="btnBack" aria-label="返回">‹ 返回</button>
+  <h1 id="ttl">八字精讲</h1>
+  <button class="act" id="btnSearch" aria-label="搜索">🔍</button>
+  <button class="act" id="btnTheme" aria-label="切换主题">◐</button>
+</header>
+
+<main>
+
+  <!-- 首页 -->
+  <section class="screen active" id="s-home">
+    <div class="hero">
+      <h2>八字精讲</h2>
+      <p>实用八字 · 系统教材与命例题库</p>
+      <div class="stat">
+        <div><b id="hCourse">—</b><span>章教材</span></div>
+        <div><b id="hNotes">—</b><span>篇笔记</span></div>
+        <div><b id="hQuiz">—</b><span>道命例</span></div>
+      </div>
+    </div>
+
+    <div id="resume"></div>
+
+    <div class="grid3">
+      <div class="mode" data-go="course"><span class="ic">📖</span><b>学</b><span>16章通读</span></div>
+      <div class="mode" data-go="notes"><span class="ic">🔎</span><b>查</b><span>笔记与索引</span></div>
+      <div class="mode" data-go="qlist"><span class="ic">✍️</span><b>练</b><span>92道命例</span></div>
+    </div>
+
+    <div class="card" id="progCard">
+      <div class="row spread"><b style="font-size:15px">学习进度</b><span class="muted" id="progPct">—</span></div>
+      <div class="bar"><i id="progBar" style="width:0"></i></div>
+      <div class="row wrap" style="margin-top:12px;gap:8px" id="progChips"></div>
+    </div>
+
+    <div class="card tap" data-go="index">
+      <div class="row spread">
+        <div><b style="font-size:15px">问题清单 · 四张索引表</b>
+          <div class="muted" style="margin-top:2px">按问题／知识点／命例反查</div></div>
+        <span style="color:var(--ink3)">›</span>
+      </div>
+    </div>
+
+    <div class="card tap" data-go="outline">
+      <div class="row spread">
+        <div><b style="font-size:15px">学习路线与依赖图</b>
+          <div class="muted" style="margin-top:2px">先学哪章、后学哪章</div></div>
+        <span style="color:var(--ink3)">›</span>
+      </div>
+    </div>
+
+    <p class="muted" style="text-align:center;margin:18px 0 4px" id="buildInfo"></p>
+  </section>
+
+  <!-- 教材章节列表 -->
+  <section class="screen" id="s-course"><div id="courseList"></div></section>
+
+  <!-- 单章阅读 -->
+  <section class="screen" id="s-chapter">
+    <div id="chapterBody" class="doc"></div>
+    <div class="row spread" style="margin:26px 0 8px;gap:10px">
+      <button class="btn" id="prevCh">‹ 上一章</button>
+      <button class="btn" id="nextCh">下一章 ›</button>
+    </div>
+  </section>
+
+  <!-- 笔记列表 -->
+  <section class="screen" id="s-notes"><div id="noteList"></div></section>
+  <section class="screen" id="s-note"><div id="noteBody" class="doc"></div></section>
+
+  <!-- 索引 / 路线 -->
+  <section class="screen" id="s-index"><div id="indexBody" class="doc"></div></section>
+  <section class="screen" id="s-outline"><div id="outlineBody" class="doc"></div></section>
+
+  <!-- 题库列表 -->
+  <section class="screen" id="s-qlist">
+    <div class="row wrap" style="gap:6px;margin-bottom:10px" id="qFilters"></div>
+    <div class="row wrap" style="gap:6px;margin-bottom:12px" id="qTags"></div>
+    <div class="card" style="padding:0;overflow:hidden" id="qRows"></div>
+  </section>
+
+  <!-- 做题 -->
+  <section class="screen" id="s-quiz">
+    <div id="quizBody"></div>
+  </section>
+
+  <!-- 搜索 -->
+  <section class="screen" id="s-search">
+    <div class="searchbar">
+      <input id="q" type="search" placeholder="搜教材、笔记、命例…" autocomplete="off">
+    </div>
+    <div id="hits"></div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button data-tab="home" class="on"><span class="ic">⌂</span>首页</button>
+  <button data-tab="course"><span class="ic">📖</span>学</button>
+  <button data-tab="notes"><span class="ic">🔎</span>查</button>
+  <button data-tab="qlist"><span class="ic">✍️</span>练</button>
+</nav>
+
+<button class="fab" id="fabToc" style="display:none" aria-label="目录">☰</button>
+
+<div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+
+<script src="data/data-meta.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

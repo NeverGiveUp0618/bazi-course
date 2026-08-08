@@ -1,0 +1,284 @@
+# -*- coding: utf-8 -*-
+"""把 Obsidian 里的 markdown 编译成站点数据。
+
+⭐ 内容源唯一性：markdown 是源，data/*.js 是产物。
+   永远只在 Obsidian 里改内容，然后重跑本脚本。不要直接改 data/*.js。
+
+用法：  python3 build.py
+"""
+import io
+import json
+import os
+import re
+import sys
+
+from mdlite import md2html, strip_md
+
+SRC = os.path.expanduser(
+    '~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyNotes/学习')
+OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+
+
+def read(p):
+    with io.open(p, encoding='utf-8') as f:
+        return f.read()
+
+
+def write_js(name, varname, obj):
+    os.makedirs(OUT, exist_ok=True)
+    p = os.path.join(OUT, name)
+    body = json.dumps(obj, ensure_ascii=False, separators=(',', ':'))
+    with io.open(p, 'w', encoding='utf-8') as f:
+        f.write(f'window.{varname}={body};\n')
+    return os.path.getsize(p)
+
+
+# ---------------------------------------------------------------- 题库
+
+def split_details(s):
+    """从 s 中切出第一个顶层 <details>…</details>。
+
+    返回 (before, inner, after)；没有则 (s, None, '')。
+    必须计数匹配——题库里拆解是嵌在解里面的第二层。
+    """
+    start = s.find('<details')
+    if start < 0:
+        return s, None, ''
+    depth = 0
+    i = start
+    while i < len(s):
+        if s.startswith('<details', i):
+            depth += 1
+            i += 8
+        elif s.startswith('</details>', i):
+            depth -= 1
+            i += 10
+            if depth == 0:
+                return s[:start], s[start:i], s[i:]
+        else:
+            i += 1
+    return s[:start], s[start:], ''
+
+
+def strip_summary(block):
+    """剥掉最外层 <details><summary>…</summary> 和结尾 </details>，返回 (summary, body)。"""
+    m = re.match(r'\s*<details[^>]*>\s*<summary>(.*?)</summary>', block, re.S)
+    summ = re.sub(r'<[^>]+>', '', m.group(1)).strip() if m else ''
+    body = block[m.end():] if m else block
+    body = re.sub(r'</details>\s*$', '', body)
+    return summ, body
+
+
+CHART_RE = re.compile(
+    r'\|\s*\|\s*年\s*\|\s*月\s*\|\s*日\s*\|\s*时\s*\|\s*\n'
+    r'\|[-\s|]+\|\s*\n'
+    r'\|\s*(乾|坤)\s*\|(.+?)\|\s*\n'
+    r'\|\s*\|(.+?)\|\s*\n')
+
+
+def parse_chart(b):
+    """抽出四柱盘做题头的大盘；抽不出就原样留在正文里。
+
+    ⚠️ 只有【恰好一个】盘时才抽。题21/35 这类双命对照题有两个盘，
+    抽走第一个会让正文里「命A」标题底下空一块，而题头那个盘又没有
+    「这是命A」的标注——两头都读不通。多盘题一律整表留在正文。
+    """
+    ms = list(CHART_RE.finditer(b))
+    if len(ms) != 1:
+        return None, b
+    m = ms[0]
+    clean = lambda xs: [x.strip().replace('**', '') for x in xs.split('|') if x.strip()]
+    gan, zhi = clean(m.group(2)), clean(m.group(3))
+    if len(gan) != 4 or len(zhi) != 4:
+        return None, b
+    return ({'g': m.group(1), 'gan': gan, 'zhi': zhi},
+            b[:m.start()] + b[m.end():])
+
+
+def build_quiz():
+    raw = read(os.path.join(SRC, '实用八字教材', '99-命例题库.md'))
+    # 题库正文之前是「按考点检索」「建议做题顺序」等导语，单独留作说明
+    first = raw.find('### 【题')
+    intro = raw[:first]
+    blocks = re.split(r'\n(?=### 【题)', raw[first:])
+
+    items = []
+    for b in blocks:
+        m = re.match(r'### 【题(\d+)】(.*?)\n', b)
+        if not m:
+            continue
+        num = int(m.group(1))
+        head = m.group(2)
+        tags = re.findall(r'`([^`]+)`', head)
+        title = re.sub(r'`[^`]+`', '', head).replace('⭐', '').strip()
+        stars = head.count('⭐')
+        rest = b[m.end():]
+
+        n_charts = len(CHART_RE.findall(rest))
+        chart, rest = parse_chart(rest)
+        face, det, tail = split_details(rest)
+
+        jie_html = chai_html = ''
+        summ = ''
+        if det:
+            summ, body = strip_summary(det)
+            if '🔍' in summ:
+                # 题37 这类：原文的解写在题面的引用块里，没有独立「解」层，
+                # 唯一的 details 就是拆解本身。
+                chai_html = md2html(body, heading_offset=2)
+                summ = ''
+            else:
+                # 标准结构：解里面嵌着 🔍 拆解，摘出来单独成层
+                pre, inner, post = split_details(body)
+                if inner and '🔍' in inner[:200]:
+                    _, cbody = strip_summary(inner)
+                    chai_html = md2html(cbody, heading_offset=2)
+                    body = pre + post
+                jie_html = md2html(body, heading_offset=2)
+
+        # 反推题＝原书根本没给解，练习时无答案可对（现为 19/20/53/67/77/90）。
+        # ⚠️ 三条弯路都走过，别再改回去：
+        #   ① 不能看 summary 叫不叫「提示」——题47/48/49 的解就写在「提示」里；
+        #   ② 不能看解层有无 blockquote——题37/76/92 的解写在题面的引用块里；
+        #   ③ 不能只搜「反推」二字——题11「留给你反推的"部分"」是整题有解、
+        #      仅一条留白，那种仍要走对答案流程。
+        # 所以只认下面这批精确短语，宁可漏判也不误判。
+        # ⚠️ 必须先剥掉 ** 再匹配——短语中间常夹着粗体标记，
+        #    如题19 的「属于**留给学习者反推**的题」。
+        plain = b.replace('**', '')
+        no_answer = any(k in plain for k in (
+            '属于留给学习者反推', '留给反推', '留作大家思考',
+            '留给你反推的题', '属反推题', '属可反推题', '戛然而止'))
+
+        items.append({
+            'n': num,
+            'title': title,
+            'tags': tags,
+            'star': stars,
+            'chart': chart,      # 仅单盘题有：题头大盘
+            'nCharts': n_charts,  # 盘总数：多盘题>1，筛「有完整盘」看这个
+            'face': md2html(face + tail, heading_offset=2),
+            'jieLabel': summ or '解',
+            'jie': jie_html,
+            'chai': chai_html,
+            'noAnswer': no_answer,
+            'text': strip_md(b)[:600],
+        })
+
+    items.sort(key=lambda x: x['n'])
+    tags = {}
+    for it in items:
+        for t in it['tags']:
+            tags[t] = tags.get(t, 0) + 1
+    return {
+        'intro': md2html(intro, heading_offset=1),
+        'items': items,
+        'tags': sorted(tags.items(), key=lambda x: -x[1]),
+    }
+
+
+# ---------------------------------------------------------------- 教材 / 笔记
+
+def build_docs(files, kind):
+    docs = []
+    for path, num, title in files:
+        s = read(path)
+        # 去掉正文首行大标题（页面自己有标题栏）
+        s = re.sub(r'^#\s+.*?\n', '', s, count=1)
+        heads = []
+        html = md2html(s, heading_offset=0, collect_headings=heads)
+        docs.append({
+            'id': f'{kind}{num}',
+            'n': num,
+            'title': title,
+            'html': html,
+            'toc': [{'lv': lv, 't': t, 'a': a} for lv, t, a in heads if lv <= 3],
+            'text': strip_md(s),
+            'chars': len(s),
+        })
+    return docs
+
+
+def collect(dirpath, pattern, kind):
+    out = []
+    for fn in sorted(os.listdir(dirpath)):
+        m = re.match(pattern, fn)
+        if not m:
+            continue
+        out.append((os.path.join(dirpath, fn), int(m.group(1)), m.group(2)))
+    return build_docs(out, kind)
+
+
+def main():
+    if not os.path.isdir(SRC):
+        sys.exit(f'找不到内容源目录：{SRC}')
+
+    quiz = build_quiz()
+    course = collect(os.path.join(SRC, '实用八字教材'),
+                     r'^(0[1-9]|1[0-6])-(.+)\.md$', 'c')
+    notes = collect(SRC, r'^八字(\d\d)-(.+)\.md$', 'n')
+
+    index_md = read(os.path.join(SRC, '00-问题清单.md'))
+    outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
+
+    meta = {
+        'name': '八字精讲',
+        'built': __import__('time').strftime('%Y-%m-%d %H:%M'),
+        'counts': {
+            'course': len(course),
+            'notes': len(notes),
+            'quiz': len(quiz['items']),
+            'quizChart': sum(1 for i in quiz['items'] if i['nCharts']),
+            'quizChai': sum(1 for i in quiz['items'] if i['chai']),
+        },
+        'outline': md2html(outline, heading_offset=0),
+        'index': md2html(index_md, heading_offset=0),
+    }
+
+    sizes = [
+        ('data-course.js', write_js('data-course.js', 'DATA_COURSE', course)),
+        ('data-notes.js', write_js('data-notes.js', 'DATA_NOTES', notes)),
+        ('data-quiz.js', write_js('data-quiz.js', 'DATA_QUIZ', quiz)),
+        ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
+    ]
+
+    print('== 构建完成 ==')
+    for k, v in meta['counts'].items():
+        print(f'  {k:12} {v}')
+    print()
+    for name, size in sizes:
+        print(f'  {name:18} {size/1024:8.1f} KB')
+    print(f'  {"合计":18} {sum(s for _, s in sizes)/1024:8.1f} KB')
+
+    # 完整性自检：数量对不上就报错，别让站默默少内容
+    bad = []
+    if len(course) != 16:
+        bad.append(f'教材应为16章，实得{len(course)}')
+    if len(notes) != 14:
+        bad.append(f'笔记应为14篇，实得{len(notes)}')
+    nc = sum(1 for i in quiz['items'] if i['nCharts'])
+    if nc != 75:
+        bad.append(f'有完整四柱的题应为75，实得{nc}')
+    if len(quiz['items']) != 92:
+        bad.append(f'题库应为92题，实得{len(quiz["items"])}')
+    # 有解＝有独立「解」层，或解写在题面的引用块里（题37/76/92 那种）
+    miss = [i['n'] for i in quiz['items']
+            if not i['jie'] and not i['noAnswer'] and '<blockquote>' not in i['face']]
+    if miss:
+        bad.append(f'这些题既无解也未标为反推题：{miss}')
+    na = [i['n'] for i in quiz['items'] if i['noAnswer']]
+    if na != [19, 20, 53, 67, 77, 90]:
+        bad.append(f'反推题应为 [19,20,53,67,77,90]，实得 {na}')
+    chai = sum(1 for i in quiz['items'] if i['chai'])
+    if chai != 86:
+        bad.append(f'拆解应为86道，实得{chai}')
+    if bad:
+        print('\n⚠️  自检未通过：')
+        for b in bad:
+            print('   -', b)
+        sys.exit(1)
+    print('\n✓ 自检通过')
+
+
+if __name__ == '__main__':
+    main()
