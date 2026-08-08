@@ -188,6 +188,36 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   padding:1px 6px;border-radius:5px
 }
 
+/* 正文里的四柱盘：同样吸顶，读到讲解时盘还在。
+   多个命例时后一个盘会自然接替前一个（同级 sticky 的默认行为）。 */
+.doc .ichart{
+  position:sticky; top:50px; z-index:40;
+  display:flex; align-items:center; gap:8px;
+  margin:14px -14px; padding:7px 14px;
+  background:color-mix(in srgb,var(--bg) 96%, transparent);
+  backdrop-filter:saturate(1.6) blur(10px);
+  -webkit-backdrop-filter:saturate(1.6) blur(10px);
+  border-top:1px solid var(--line); border-bottom:1px solid var(--line);
+  overflow-x:auto; -webkit-overflow-scrolling:touch;
+}
+.doc .ichart .lb{
+  font-size:11px; color:var(--ink2); font-weight:600;
+  writing-mode:vertical-rl; letter-spacing:1px; line-height:1; flex:0 0 auto
+}
+.doc .ichart .cols{display:flex; gap:6px; flex:0 0 auto}
+.doc .ichart .c{text-align:center; min-width:30px}
+.doc .ichart .c .p{font-size:9.5px; color:var(--ink3); line-height:1.2}
+.doc .ichart .c .a,.doc .ichart .c .b{
+  font-family:Georgia,"Songti SC",serif; font-size:19px; line-height:1.25; font-weight:600
+}
+.doc .ichart .c .a{color:var(--cinnabar)}
+.doc .ichart .c .b{color:var(--indigo)}
+.doc .ichart .c.day{
+  background:var(--indigo-soft); border-radius:6px; box-shadow:0 0 0 1px var(--line)
+}
+/* 题库里由题头那条吸顶盘负责，正文的不再跟着粘，免得两条并存 */
+#s-quiz .doc .ichart{position:static; z-index:auto}
+
 .doc .tw{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:14px 0}
 .doc table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:min-content}
 .doc th,.doc td{border:1px solid var(--line);padding:7px 10px;text-align:left}

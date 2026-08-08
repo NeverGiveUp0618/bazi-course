@@ -57,6 +57,9 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#s-chapter').classList.contains('active'), '进入第8章');
   ok($('#ttl').textContent.includes('制与做功'), '标题正确：' + $('#ttl').textContent);
   ok($('#chapterBody').innerHTML.length > 5000, '正文已渲染');
+  ok(D.querySelectorAll('#chapterBody .ichart').length > 0,
+     '教材正文的命例盘转成了可吸顶的紧凑盘，共 ' + D.querySelectorAll('#chapterBody .ichart').length + ' 个');
+  ok(D.querySelector('#chapterBody .ichart .c.day') !== null, '正文盘也标出日柱');
   ok($('#btnBack').classList.contains('show'), '返回键出现');
 
   console.log('\n— 路由（套壳侧滑的关键）—');
@@ -81,8 +84,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#stickyChart').querySelectorAll('.c').length === 4, '单盘题：吸顶条 4 柱');
   ok($('#stickyChart').querySelector('.c.day .a').textContent === '丙', '日柱标在第3柱(丙午)');
   ok(/坤造/.test($('#stickyChart').innerHTML), '单盘题：性别标记挪进吸顶条');
-  ok(D.querySelector('#quizBody .doc').innerHTML.indexOf('<table>') < 0,
-     '单盘题：盘不在正文里重复');
+  ok(D.querySelectorAll('#quizBody .ichart').length === 0,
+     '单盘题：盘不在正文里重复（只在题头吸顶条）');
 
   // 题21：双命对照题 —— 两个盘都要留在正文，题头不放大盘
   D.querySelector('[data-tab="qlist"]').click(); await wait();
@@ -91,8 +94,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   r21.click(); await wait();
   ok($('#s-quiz').classList.contains('active'), '进入题21');
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '多盘题：题头不放大盘');
-  ok((D.querySelector('#quizBody .doc').innerHTML.match(/<table>/g) || []).length === 2,
-     '多盘题：命A命B 两个盘都留在正文');
+  ok(D.querySelectorAll('#quizBody .ichart').length === 2,
+     '多盘题：命A命B 两个盘都留在正文（已转成紧凑盘）');
   ok(!!$('#bJie'), '「对答案」按钮存在');
   ok(!$('#L2').innerHTML, '未点开时不泄露答案');
   $('#bJie').click(); await wait();

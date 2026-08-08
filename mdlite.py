@@ -52,6 +52,36 @@ _RAW = re.compile(r'^\s*</?(details|summary|div|br|hr|p|span|img)\b', re.I)
 _TABLE_SEP = re.compile(r'^\s*\|[\s:|-]+\|\s*$')
 
 
+_PILLARS = ['年', '月', '日', '时']
+
+
+def _four_pillar(head, body):
+    """把「空|年|月|日|时」这种四柱表渲染成紧凑盘，好让它在正文里吸顶。
+
+    教材与笔记里散着 111 个命例盘，读到讲解时盘早滚没了。渲染成紧凑盘 +
+    CSS sticky，滚动时当前命例的盘会一直钉在顶栏下，直到下一个盘接替它。
+    认不出的（缺干支、只有一行的占位表）退回普通表格，不硬套。
+    """
+    if len(head) != 5 or head[0].strip():
+        return None
+    if [h.strip() for h in head[1:]] != _PILLARS:
+        return None
+    if len(body) < 2 or len(body[0]) < 5 or len(body[1]) < 5:
+        return None
+    clean = lambda xs: [c.replace('**', '').strip() for c in xs[1:5]]
+    gan, zhi = clean(body[0]), clean(body[1])
+    if not all(gan) or not all(zhi):
+        return None
+    label = body[0][0].replace('**', '').strip('（）() ') or ''
+    cols = ''.join(
+        '<div class="c%s"><div class="p">%s</div><div class="a">%s</div>'
+        '<div class="b">%s</div></div>'
+        % (' day' if k == 2 else '', p, _html.escape(gan[k]), _html.escape(zhi[k]))
+        for k, p in enumerate(_PILLARS))
+    lb = ('<span class="lb">%s造</span>' % _html.escape(label)) if label else ''
+    return '<div class="ichart">%s<div class="cols">%s</div></div>' % (lb, cols)
+
+
 def _cells(line):
     line = line.strip()
     if line.startswith('|'):
@@ -129,6 +159,10 @@ def md2html(text, heading_offset=0, collect_headings=None):
             while i < n and lines[i].strip().startswith('|'):
                 body.append(_cells(lines[i]))
                 i += 1
+            ic = _four_pillar(head, body)
+            if ic:
+                out.append(ic)
+                continue
             t = ['<div class="tw"><table>', '<thead><tr>']
             t += [f'<th>{_inline(c)}</th>' for c in head]
             t.append('</tr></thead><tbody>')
