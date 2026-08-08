@@ -77,11 +77,12 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   // 题3：单盘题 —— 题头应有四柱大盘
   const r3 = Array.from(rows).find(r => r.querySelector('.n').textContent === '3');
   r3.click(); await wait();
-  ok(D.querySelectorAll('.chart .col').length === 4, '单盘题：题头渲染 4 柱大盘');
+  ok(D.querySelectorAll('#quizBody .chart').length === 0, '单盘题：题头不再画大盘（避免同一个盘出现两次）');
   ok($('#stickyChart').querySelectorAll('.c').length === 4, '单盘题：吸顶条 4 柱');
   ok($('#stickyChart').querySelector('.c.day .a').textContent === '丙', '日柱标在第3柱(丙午)');
+  ok(/坤造/.test($('#stickyChart').innerHTML), '单盘题：性别标记挪进吸顶条');
   ok(D.querySelector('#quizBody .doc').innerHTML.indexOf('<table>') < 0,
-     '单盘题：盘已从正文抽走，不重复出现');
+     '单盘题：盘不在正文里重复');
 
   // 题21：双命对照题 —— 两个盘都要留在正文，题头不放大盘
   D.querySelector('[data-tab="qlist"]').click(); await wait();
@@ -89,7 +90,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const r21 = Array.from(rows21).find(r => r.querySelector('.n').textContent === '21');
   r21.click(); await wait();
   ok($('#s-quiz').classList.contains('active'), '进入题21');
-  ok(D.querySelectorAll('.chart .col').length === 0, '多盘题：题头不放大盘');
+  ok(D.querySelectorAll('#quizBody .chart').length === 0, '多盘题：题头不放大盘');
   ok((D.querySelector('#quizBody .doc').innerHTML.match(/<table>/g) || []).length === 2,
      '多盘题：命A命B 两个盘都留在正文');
   ok(!!$('#bJie'), '「对答案」按钮存在');
@@ -104,21 +105,11 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   console.log('\n— 吸顶四柱盘 —');
   // jsdom 无 IntersectionObserver，会走 fallback 直接点亮
   const sc = $('#stickyChart');
+  ok(!sc.classList.contains('hide'), '有盘的题：吸顶条常驻显示（不依赖任何滚动事件）');
   ok(sc.querySelectorAll('.grp').length === 2, '多盘题：吸顶条放两个盘，实为 ' + sc.querySelectorAll('.grp').length);
   ok(/命A/.test(sc.innerHTML) && /命B/.test(sc.innerHTML), '两盘各带命A/命B标签');
   ok(sc.querySelectorAll('.c').length === 8, '共 8 柱');
   ok(sc.querySelectorAll('.c.day').length === 2, '每盘的日柱都被标出');
-
-  // 真正测「滚过题头才亮、滚回去要灭」——jsdom 的 rect 全是 0，得自己造几何
-  const anchor = D.querySelector('#quizBody .chart') || D.querySelector('#quizBody table');
-  const setBottom = v => { anchor.getBoundingClientRect = () => ({ bottom: v, top: v - 90, height: 90 }); };
-  setBottom(300); window.dispatchEvent(new window.Event('scroll'));
-  ok(!sc.classList.contains('on'), '题头盘还在视野内 → 吸顶条不亮');
-  setBottom(40); window.dispatchEvent(new window.Event('scroll'));
-  ok(sc.classList.contains('on'), '题头盘滚出视野 → 吸顶条亮起');
-  setBottom(300); window.dispatchEvent(new window.Event('scroll'));
-  ok(!sc.classList.contains('on'), '滚回顶部 → 吸顶条重新隐藏');
-  setBottom(40); window.dispatchEvent(new window.Event('scroll'));
 
   console.log('\n— 看过标记（刻意不做 SRS／自评／错题）—');
   ok(!D.querySelector('#rate'), '没有自评面板');
@@ -143,10 +134,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
 
   console.log('\n— 离开题目页要清理吸顶条 —');
   D.querySelector('[data-tab="course"]').click(); await wait();
-  ok(!$('#stickyChart').classList.contains('on'), '切到教材后吸顶盘隐藏');
-  // 监听没摘干净的话，这次 scroll 会把它又点亮
-  window.dispatchEvent(new window.Event('scroll'));
-  ok(!$('#stickyChart').classList.contains('on'), 'scroll 监听已摘除，不会残留点亮');
+  ok($('#stickyChart').classList.contains('hide'), '切到教材后吸顶盘隐藏');
 
   console.log('\n— 搜索 —');
   $('#btnSearch').click(); await wait();

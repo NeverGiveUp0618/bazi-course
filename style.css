@@ -227,30 +227,34 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 }
 
 /* ---------- 吸顶四柱盘 ----------
-   讲解里满是「卯戌合」「日支巳」这类指代盘上具体字的话，
-   盘一滚出视野就得来回翻，所以滚过题头后把盘钉在顶栏下方。 */
+   讲解里满是「卯戌合」「日支巳」这类指代盘上具体字的话，盘一滚出视野
+   就得来回翻，所以把盘钉在顶栏下方，整页滚动全程可见。
+
+   ⚠️ 常驻显示，不做「滚过题头才淡入」那种开关。试过两版都不可靠：
+      IntersectionObserver 的回调在套壳 iframe 里时灵时不灵；
+      scroll 事件在 iframe 内编程滚动时压根不触发（实测 scrollEvt=0）。
+      而 position:sticky 本身一直是好的——所以干脆纯 CSS，不依赖任何事件。
+      题头因此不再单独画大盘，避免同一个盘出现两次。 */
 .sticky-chart{
   position:sticky; top:50px; z-index:45;
-  margin:0 -14px 0; padding:6px 14px;
-  background:color-mix(in srgb,var(--bg) 94%, transparent);
+  margin:0 -14px 10px; padding:7px 14px;
+  background:color-mix(in srgb,var(--bg) 96%, transparent);
   backdrop-filter:saturate(1.6) blur(10px);
   -webkit-backdrop-filter:saturate(1.6) blur(10px);
   border-bottom:1px solid var(--line);
-  opacity:0; transform:translateY(-6px); pointer-events:none;
-  transition:opacity .18s ease, transform .18s ease;
 }
-.sticky-chart.on{opacity:1; transform:none; pointer-events:auto}
-.sticky-chart .inner{display:flex; gap:14px; overflow-x:auto; -webkit-overflow-scrolling:touch}
+.sticky-chart:empty,.sticky-chart.hide{display:none}
+.sticky-chart .inner{display:flex; gap:16px; overflow-x:auto; -webkit-overflow-scrolling:touch}
 .sticky-chart .grp{display:flex; align-items:center; gap:7px; flex:0 0 auto}
 .sticky-chart .lb{
-  font-size:10.5px; color:var(--ink3); writing-mode:vertical-rl;
-  letter-spacing:1px; line-height:1
+  font-size:11px; color:var(--ink2); font-weight:600;
+  writing-mode:vertical-rl; letter-spacing:1px; line-height:1
 }
-.sticky-chart .cols{display:flex; gap:5px}
-.sticky-chart .c{text-align:center; min-width:26px}
-.sticky-chart .c .p{font-size:9px; color:var(--ink3); line-height:1.2}
+.sticky-chart .cols{display:flex; gap:6px}
+.sticky-chart .c{text-align:center; min-width:30px}
+.sticky-chart .c .p{font-size:9.5px; color:var(--ink3); line-height:1.2}
 .sticky-chart .c .a,.sticky-chart .c .b{
-  font-family:Georgia,"Songti SC",serif; font-size:16px; line-height:1.25; font-weight:600
+  font-family:Georgia,"Songti SC",serif; font-size:19px; line-height:1.25; font-weight:600
 }
 .sticky-chart .c .a{color:var(--cinnabar)}
 .sticky-chart .c .b{color:var(--indigo)}
