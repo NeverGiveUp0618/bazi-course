@@ -54,7 +54,7 @@ var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
  * 所以照其余几个 App 的统一包装：前进 pushState，回到栈上已有的屏则
  * history.go(-n) 折叠，popstate 幂等重放。
  */
-var stickyIO = null;  // 吸顶盘的 IntersectionObserver（切屏要断开）
+var stickyOnScroll = null;  // 吸顶盘的 scroll 监听（切屏要摘掉）
 var stack = [];   // 历史条目，与 history 的 state.i 一一对应
 var pos = 0;      // 当前所在下标
 var cur = { scr: 'home', id: null };
@@ -80,7 +80,7 @@ function _apply(scr, id) {
   $('#fabToc').style.display = (scr === 'chapter' || scr === 'note') ? 'block' : 'none';
   if (scr !== 'quiz') {
     $('#stickyChart').classList.remove('on');
-    if (stickyIO) { stickyIO.disconnect(); stickyIO = null; }
+    clearSticky();
   }
 
   RENDER[scr] && RENDER[scr](id);
@@ -412,7 +412,7 @@ RENDER.quiz = function (n) {
  */
 function setupSticky(it) {
   var bar = $('#stickyChart');
-  if (stickyIO) { stickyIO.disconnect(); stickyIO = null; }
+  clearSticky();
   bar.classList.remove('on');
 
   var cs = it.charts || [];
@@ -430,13 +430,29 @@ function setupSticky(it) {
       }).join('') + '</div></div>';
   }).join('');
 
-  // 题头盘（或题面首个表格）滚出视野时才亮出来，别一进来就占两层
+  // 题头盘（或题面首个表格）滚出视野时才亮出来，别一进来就占两层。
+  // ⚠️ 这里刻意用 scroll 而不是 IntersectionObserver：套壳 view.html 是
+  //    「固定顶栏 + .stage 独立滚动容器」，真正在滚的未必是 IO 认的那层 root，
+  //    实测 IO 的回调时灵时不灵。scroll + getBoundingClientRect 最直白可靠。
   var anchor = $('#quizBody .chart') || $('#quizBody table') || $('#quizBody .card');
-  if (!anchor || typeof IntersectionObserver === 'undefined') { bar.classList.add('on'); return; }
-  stickyIO = new IntersectionObserver(function (es) {
-    bar.classList.toggle('on', !es[0].isIntersecting);
-  }, { rootMargin: '-96px 0px 0px 0px', threshold: 0 });
-  stickyIO.observe(anchor);
+  if (!anchor) { bar.classList.add('on'); return; }
+  stickyOnScroll = function () {
+    var r = anchor.getBoundingClientRect();
+    bar.classList.toggle('on', r.bottom < 96);
+  };
+  window.addEventListener('scroll', stickyOnScroll, { passive: true });
+  // 套壳里若外层容器在滚，window 可能收不到，补一个容器级监听
+  if (window.self !== window.top) {
+    document.addEventListener('scroll', stickyOnScroll, { passive: true, capture: true });
+  }
+  stickyOnScroll();
+}
+
+function clearSticky() {
+  if (!stickyOnScroll) return;
+  window.removeEventListener('scroll', stickyOnScroll);
+  document.removeEventListener('scroll', stickyOnScroll, true);
+  stickyOnScroll = null;
 }
 
 /* 看过就记一笔，仅用于列表上的圆点与「没看过」筛选。不打分、不排复习。 */
