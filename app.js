@@ -12,15 +12,17 @@ var META = window.DATA_META || {};
 
 /* ============================ 存储 ============================
  * ⚠️ 这些键会被五术堂导航首页的学习看板读取，改名要同步改看板。
- *   bazi_course_read       {章id: 阅读百分比 0-100}
- *   bazi_course_srs        {题号: {d:到期时间, i:间隔天, s:做过次数, g:上次自评}}
- *   bazi_course_tag_stats  {考点: {a:答题数, e:未答对数}}   ← 与八字日练同构
- *   bazi_course_last       {scr, id}
+ *   bazi_course_read  {文档id: 阅读百分比 0-100}   c1..c16 教材 / n1..n14 笔记
+ *   bazi_course_seen  {题号: 时间戳}               看过答案的题
+ *   bazi_course_last  {scr, id}
+ *
+ * ⚠️ 刻意不做 SRS／错题本／自评打分（用户 2026-08-08 要求「练就简单点」）。
+ *    命例是主观题，本来也没法客观判分；这里只留一个「看过」标记，
+ *    好让列表能看出做到哪了，不制造复习压力。
  */
 var K = {
   read: 'bazi_course_read',
-  srs: 'bazi_course_srs',
-  tag: 'bazi_course_tag_stats',
+  seen: 'bazi_course_seen',
   last: 'bazi_course_last',
   theme: 'bazi_course_theme'
 };
@@ -125,20 +127,20 @@ RENDER.home = function () {
   $('#hQuiz').textContent = c.quiz || 0;
   $('#buildInfo').textContent = '内容更新于 ' + (META.built || '—');
 
-  var read = ls(K.read, {}), srs = ls(K.srs, {});
-  var chDone = Object.keys(read).filter(function (k) { return read[k] >= 90; }).length;
-  var qDone = Object.keys(srs).length;
+  var read = ls(K.read, {});
+  // read 里教材(c*)与笔记(n*)混存，进度只算教材
+  var chDone = Object.keys(read).filter(function (k) {
+    return k.charAt(0) === 'c' && read[k] >= 90;
+  }).length;
+  var qDone = Object.keys(ls(K.seen, {})).length;
   var total = (c.course || 16) + (c.quiz || 92);
   var pct = Math.round((chDone + qDone) / total * 100);
   $('#progPct').textContent = pct + '%';
   $('#progBar').style.width = pct + '%';
 
-  var due = 0, now = Date.now();
-  Object.keys(srs).forEach(function (n) { if (srs[n].d <= now) due++; });
   $('#progChips').innerHTML =
     '<span class="pill g">教材 ' + chDone + '/' + (c.course || 16) + '</span>' +
-    '<span class="pill g">命例 ' + qDone + '/' + (c.quiz || 92) + '</span>' +
-    (due ? '<span class="pill">待复习 ' + due + '</span>' : '');
+    '<span class="pill g">命例 ' + qDone + '/' + (c.quiz || 92) + '</span>';
 
   var last = ls(K.last, null);
   var box = $('#resume');
@@ -288,13 +290,11 @@ RENDER.qlist = function () {
   var box = $('#qRows');
   box.innerHTML = '<div class="empty">载入中…</div>';
   needQuiz().then(function (Q) {
-    var srs = ls(K.srs, {}), now = Date.now();
+    var seen = ls(K.seen, {});
 
     var modes = [
       ['all', '全部 ' + Q.items.length],
-      ['due', '待复习'],
-      ['wrong', '错题'],
-      ['new', '未做'],
+      ['new', '没看过'],
       ['star', '精读'],
       ['chart', '有完整盘']
     ];
@@ -317,12 +317,9 @@ RENDER.qlist = function () {
     });
 
     var list = Q.items.filter(function (it) {
-      var s = srs[it.n];
       if (qFilter.tag && it.tags.indexOf(qFilter.tag) < 0) return false;
       switch (qFilter.mode) {
-        case 'due': return s && s.d <= now;
-        case 'wrong': return s && s.g < 3;
-        case 'new': return !s;
+        case 'new': return !seen[it.n];
         case 'star': return it.star > 0;
         case 'chart': return it.nCharts > 0;
       }
@@ -331,13 +328,11 @@ RENDER.qlist = function () {
 
     if (!list.length) { box.innerHTML = '<div class="empty">这个筛选下没有题</div>'; return; }
     box.innerHTML = list.map(function (it) {
-      var s = srs[it.n];
-      var cls = !s ? 'new' : s.g === 3 ? 'ok' : s.g === 2 ? 'mid' : 'bad';
       return '<div class="qrow" data-q="' + it.n + '">' +
         '<span class="n">' + it.n + '</span>' +
         '<span class="t">' + (it.star ? '⭐' : '') + esc(it.title) +
         (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
-        '<span class="s"><i class="dot ' + cls + '"></i></span></div>';
+        '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
     }).join('');
     $$('[data-q]', box).forEach(function (el) {
       el.onclick = function () { show('quiz', +el.dataset.q); };
@@ -380,6 +375,7 @@ RENDER.quiz = function (n) {
 
     $('#quizBody').innerHTML = h;
     bindDoc($('#quizBody'));
+    navBar(it);
 
     $('#bJie').onclick = function () {
       $('#L1').innerHTML = '';
@@ -396,62 +392,37 @@ RENDER.quiz = function (n) {
             '<div class="muted" style="margin-bottom:8px">我补的推理，非原文，可推翻。</div>' +
             it.chai + '</div>';
           bindDoc($('#L3'));
-          selfRate(it);
         };
       }
-      selfRate(it);
+      markSeen(it.n);
     };
   });
 };
 
-function selfRate(it) {
-  if ($('#rate')) return;
-  $('#L4').innerHTML =
-    '<div class="card" id="rate" style="margin-top:14px">' +
-    '<b style="font-size:14.5px">刚才自己推出来了吗？</b>' +
-    '<div class="muted" style="margin-top:2px">用来安排复习间隔，不算分</div>' +
-    '<div class="self">' +
-    '<button class="y" data-g="3">推对了</button>' +
-    '<button class="p" data-g="2">部分对</button>' +
-    '<button class="n" data-g="1">没推出来</button>' +
-    '</div></div>';
-  $$('#rate [data-g]').forEach(function (b) {
-    b.onclick = function () { grade(it, +b.dataset.g); };
-  });
+/* 看过就记一笔，仅用于列表上的圆点与「没看过」筛选。不打分、不排复习。 */
+function markSeen(n) {
+  var s = ls(K.seen, {});
+  if (s[n]) return;
+  s[n] = Date.now();
+  save(K.seen, s);
 }
 
-function grade(it, g) {
-  var srs = ls(K.srs, {});
-  var s = srs[it.n] || { i: 0, s: 0 };
-  s.s = (s.s || 0) + 1;
-  s.g = g;
-  if (g === 3) s.i = s.i ? Math.round(s.i * 2.4) : 3;
-  else if (g === 2) s.i = s.i ? Math.max(1, Math.round(s.i * 1.1)) : 1;
-  else s.i = 0;                       // 没推出来 → 今天内再来
-  s.d = Date.now() + s.i * 864e5;
-  srs[it.n] = s;
-  save(K.srs, srs);
-
-  var st = ls(K.tag, {});
-  it.tags.forEach(function (t) {
-    st[t] = st[t] || { a: 0, e: 0 };
-    st[t].a++;
-    if (g < 3) st[t].e++;
+function navBar(it) {
+  needQuiz().then(function (Q) {
+    var i = -1;
+    for (var k = 0; k < Q.items.length; k++) if (Q.items[k].n === it.n) { i = k; break; }
+    var prev = i > 0 ? Q.items[i - 1] : null;
+    var next = i >= 0 && i < Q.items.length - 1 ? Q.items[i + 1] : null;
+    $('#L4').innerHTML =
+      '<div class="row spread" id="qnav" style="gap:10px;margin:20px 0 6px">' +
+      '<button class="btn" id="bPrev" style="flex:1"' + (prev ? '' : ' disabled') + '>‹ 上一题</button>' +
+      '<button class="btn" id="bList" style="flex:0 0 auto">题库</button>' +
+      '<button class="btn pri" id="bNext" style="flex:1"' + (next ? '' : ' disabled') + '>下一题 ›</button>' +
+      '</div>';
+    $('#bList').onclick = function () { show('qlist', null); };
+    if (prev) $('#bPrev').onclick = function () { show('quiz', prev.n); };
+    if (next) $('#bNext').onclick = function () { show('quiz', next.n); };
   });
-  save(K.tag, st);
-
-  $('#rate').innerHTML = '<div class="row spread"><b style="font-size:14.5px">已记下</b>' +
-    '<span class="muted">' + (s.i ? s.i + ' 天后再练' : '稍后再练') + '</span></div>' +
-    '<div class="row" style="gap:8px;margin-top:12px">' +
-    '<button class="btn" id="bNext" style="flex:1">下一题 ›</button>' +
-    '<button class="btn" id="bList" style="flex:1">回题库</button></div>';
-  $('#bList').onclick = function () { show('qlist', null); };
-  $('#bNext').onclick = function () {
-    needQuiz().then(function (Q) {
-      var nx = Q.items.filter(function (x) { return x.n > it.n; })[0];
-      show('quiz', nx ? nx.n : Q.items[0].n);
-    });
-  };
 }
 
 /* ---------- 搜索 ---------- */

@@ -71,6 +71,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const rows = D.querySelectorAll('#qRows [data-q]');
   ok(rows.length === 92, '列出 92 题，实为 ' + rows.length);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
+  const fm = Array.from(D.querySelectorAll('#qFilters [data-m]')).map(e => e.dataset.m);
+  ok(fm.join(',') === 'all,new,star,chart', '筛选只剩 全部/没看过/精读/有完整盘：' + fm.join(','));
 
   // 题3：单盘题 —— 题头应有四柱大盘
   const r3 = Array.from(rows).find(r => r.querySelector('.n').textContent === '3');
@@ -97,14 +99,17 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   $('#bChai').click(); await wait();
   ok($('#L3').innerHTML.includes('我补的推理'), '拆解展开且带免责声明');
 
-  console.log('\n— 自评与 SRS —');
-  ok(!!$('#rate'), '自评面板出现');
-  D.querySelector('#rate [data-g="3"]').click(); await wait();
-  const srs = JSON.parse(window.localStorage.getItem('bazi_course_srs'));
-  ok(srs['21'] && srs['21'].i === 3, '推对 → 间隔 3 天，实为 ' + (srs['21'] && srs['21'].i));
-  const tag = JSON.parse(window.localStorage.getItem('bazi_course_tag_stats'));
-  ok(tag && Object.keys(tag).length > 0, '考点统计已写入：' + Object.keys(tag || {}).join(','));
-  ok(Object.values(tag).every(v => v.a === 1 && v.e === 0), '答对时 e 不增加');
+  console.log('\n— 看过标记（刻意不做 SRS／自评／错题）—');
+  ok(!D.querySelector('#rate'), '没有自评面板');
+  ok(!window.localStorage.getItem('bazi_course_srs'), '不写 SRS');
+  ok(!window.localStorage.getItem('bazi_course_tag_stats'), '不写考点正确率');
+  const seen = JSON.parse(window.localStorage.getItem('bazi_course_seen') || '{}');
+  ok(!!seen['21'], '看过答案后记下题号 21');
+  ok(!!$('#qnav') && !!$('#bPrev') && !!$('#bNext'), '上一题/下一题导航出现');
+  $('#bNext').click(); await wait();
+  ok($('#ttl').textContent === '第 22 题', '下一题 → 22，实为 ' + $('#ttl').textContent);
+  $('#bPrev').click(); await wait();
+  ok($('#ttl').textContent === '第 21 题', '上一题 → 21');
 
   console.log('\n— 反推题不该有假答案 —');
   D.querySelector('[data-tab="qlist"]').click(); await wait();

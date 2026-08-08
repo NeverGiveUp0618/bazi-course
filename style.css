@@ -241,14 +241,6 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   animation:fade .2s
 }
 .reveal.chai{border-left:3px solid var(--gold)}
-.self{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
-.self button{
-  border:1px solid var(--line);background:var(--card);border-radius:10px;
-  padding:11px 4px;font-size:13.5px;cursor:pointer;color:var(--ink);font-family:inherit
-}
-.self button.y{border-color:var(--ok);color:var(--ok)}
-.self button.p{border-color:var(--warn);color:var(--warn)}
-.self button.n{border-color:var(--cinnabar);color:var(--cinnabar)}
 
 .qrow{
   display:flex;align-items:center;gap:10px;padding:11px 12px;
@@ -262,8 +254,7 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .qrow .t{flex:1;font-size:14.5px;line-height:1.5}
 .qrow .s{flex:0 0 auto;font-size:11px}
 .dot{width:7px;height:7px;border-radius:50%;display:inline-block}
-.dot.ok{background:var(--ok)} .dot.mid{background:var(--warn)}
-.dot.bad{background:var(--cinnabar)} .dot.new{background:var(--line)}
+.dot.ok{background:var(--indigo)} .dot.new{background:var(--line)}
 
 /* ---------- 搜索 ---------- */
 .searchbar{
