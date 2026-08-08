@@ -199,7 +199,7 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .doc .src{
   font-size:12px;color:var(--gold);white-space:nowrap;
   background:color-mix(in srgb,var(--gold) 12%, transparent);
-  padding:1px 6px;border-radius:5px
+  padding:1px 7px;border-radius:5px
 }
 
 /* 正文里的四柱盘：同样吸顶，读到讲解时盘还在。
@@ -225,6 +225,29 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   font-family:Georgia,"Songti SC",serif; font-size:19px; line-height:1.25; font-weight:600
 }
 .doc .ichart .c .a,.doc .ichart .c .b{display:block}
+
+/* 原文原话：原来靠「」标示，括号太多太吵，改用颜色区分。
+   ⚠️ <q> 会由浏览器自动补一对默认引号，只写 quotes:none 不保险，
+      必须把伪元素的 content 也清掉，否则等于把「」换成了 "" 白改一场。 */
+.doc q.yw{quotes:none; color:var(--indigo2); font-style:normal}
+.doc q.yw::before,.doc q.yw::after{content:none}
+.doc blockquote q.yw{color:inherit}      /* 引用块本身已有边界，不必再变色 */
+/* 强调短语：原来写作【劫财】，去掉括号只留底色 */
+.doc em.hl{
+  font-style:normal; font-weight:600;
+  background:color-mix(in srgb,var(--gold) 16%, transparent);
+  border-radius:4px; padding:0 3px;
+}
+/* 题号交叉引用：原来写作【21】，现在可点 */
+.doc a.qref{
+  color:var(--indigo); text-decoration:none; font-weight:600; cursor:pointer;
+  border-bottom:1px dashed var(--indigo); white-space:nowrap
+}
+
+/* 行内干支串（表格/列表里的，不提升成块级盘，只上五行色） */
+.gz-run{white-space:nowrap; font-family:Georgia,"Songti SC",serif; font-weight:600}
+.gz-run i{font-style:normal; color:var(--ink3); margin:0 3px; font-weight:400}
+.gz-run strong{font-weight:800; text-decoration:underline; text-underline-offset:3px}
 
 /* 五行本色（干支通用） */
 .w-mu{color:var(--wx-mu)}   .w-huo{color:var(--wx-huo)}  .w-tu{color:var(--wx-tu)}

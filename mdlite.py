@@ -18,8 +18,18 @@ _INLINE_CODE = re.compile(r'`([^`\n]+)`')
 _BOLD = re.compile(r'\*\*(.+?)\*\*', re.S)
 _WIKI = re.compile(r'\[\[([^\]]+)\]\]')
 _LINK = re.compile(r'\[([^\]]+)\]\(([^)]+)\)')
-# 〔初级班 p13〕〔例题解 p16-17〕—— 出处标注，渲染成可辨识的小标签
-_SRC = re.compile(r'〔([^〕]*?p\d[\d\-,\s]*)〕')
+# 〔初级班 p13〕〔例题解 p16-17〕—— 出处标注，渲染成可辨识的小标签。
+# ⚠️ 不能死抠「p+数字」结尾：实际还有〔…p55（红字）〕〔…p20 两例〕〔…例9〕〔存疑〕
+#    等变体，抠格式会漏掉近百处。凡〔〕一律当标注渲染。
+_SRC = re.compile(r'〔([^〕\n]{1,60})〕')
+# 【21】【题18】—— 题号交叉引用，做成可点击
+_QREF = re.compile(r'【题?\s*(\d{1,3})】')
+# 【劫财】【竞争者】—— 强调短语，与 ** 加粗重复，只留高亮不留括号
+_HL = re.compile(r'【([^】\n]{1,40})】')
+# 「原文原话」—— 标示这句是原文。去掉括号改用颜色区分，减少视觉噪音。
+# ⚠️ 不能限长：原文引用常跨好几行（段落内已被合并成 <br>），设 200 字上限会漏掉
+#    最长的那批。`[^」]` 已保证匹配到最近的闭引号，非贪婪不会跨引文错配。
+_QUOTE = re.compile(r'「([^」]+?)」')
 
 
 def _inline(s):
@@ -32,11 +42,23 @@ def _inline(s):
 
     s = _INLINE_CODE.sub(keep, s)
     s = _html.escape(s, quote=False)
-    s = _SRC.sub(lambda m: f'<span class="src">〔{m.group(1)}〕</span>', s)
+    # 干支串要在 _BOLD 之前上色：串里的 ** 是标日主的，一旦被转成 <strong>
+    # 就断了正则，认不出整串了。
+    s = _color_gz_inline(s)
+    # 括号本身是视觉噪音，一律换成样式；内部标记留给后面的 _BOLD 处理。
+    s = _SRC.sub(lambda m: f'<span class="src">{m.group(1)}</span>', s)
+    s = _QREF.sub(lambda m: f'<a class="qref" data-q="{m.group(1)}">题{m.group(1)}</a>', s)
+    s = _HL.sub(lambda m: f'<em class="hl">{m.group(1)}</em>', s)
+    s = _QUOTE.sub(lambda m: f'<q class="yw">{m.group(1)}</q>', s)
     s = _BOLD.sub(lambda m: f'<strong>{m.group(1)}</strong>', s)
     s = _LINK.sub(lambda m: f'<a href="{m.group(2)}" target="_blank" rel="noopener">{m.group(1)}</a>', s)
-    s = _WIKI.sub(
-        lambda m: f'<a class="wiki" data-wiki="{_html.escape(m.group(1), quote=True)}">{m.group(1)}</a>', s)
+    # [[目标]] 或 Obsidian 的 [[目标|显示文本]]——后者只显示竖线后半段
+    def _wiki(m):
+        raw = m.group(1)
+        target, _, label = raw.partition('|')
+        return ('<a class="wiki" data-wiki="%s">%s</a>'
+                % (_html.escape(target, quote=True), label or target))
+    s = _WIKI.sub(_wiki, s)
     for i, c in enumerate(stash):
         s = s.replace(f'\x00C{i}\x00', f'<code>{_html.escape(c, quote=False)}</code>')
     return s
@@ -106,10 +128,32 @@ def render_chart(gan, zhi, label=''):
 
 _GAN = '甲乙丙丁戊己庚辛壬癸'
 _ZHI = '子丑寅卯辰巳午未申酉戌亥'
-# 行内简写盘：（辛丁**丙**己／亥酉**辰**亥）——加粗的是日主，斜杠可能是全角或半角
-_INLINE_CHART = re.compile(
-    r'[（(]\s*((?:\*{0,2}[' + _GAN + r']\*{0,2}\s*){4})\s*[／/]\s*'
-    r'((?:\*{0,2}[' + _ZHI + r']\*{0,2}\s*){4})\s*[）)]')
+# 简写盘：四干／四支，加粗的是日主，斜杠可能全角或半角。
+# ⚠️ 括号必须是可选的——全站 190 处里只有 85 处带括号，另外 105 处是
+#    「**命例·库冲成巨富**：乙己**己**庚／巳丑未午」这种裸串（教材第8章尤其多）。
+_GZ_RUN = re.compile(
+    r'[（(]?\s*((?:\*{0,2}[' + _GAN + r']\*{0,2}\s*){4})\s*[／/]\s*'
+    r'((?:\*{0,2}[' + _ZHI + r']\*{0,2}\s*){4})\s*[）)]?')
+_INLINE_CHART = _GZ_RUN
+
+
+def _gz_seg(seg, cls):
+    """把一串干（或支）逐字上五行色，保留原本的 ** 强调（多半是标日主）。"""
+    out = []
+    for m in re.finditer(r'(\*\*)?([' + _GAN + _ZHI + r'])(\*\*)?', seg):
+        c = m.group(2)
+        s = gz_span(c, cls)
+        if m.group(1) and m.group(3):
+            s = '<strong>%s</strong>' % s
+        out.append(s)
+    return ''.join(out)
+
+
+def _color_gz_inline(s):
+    """表格 / 列表 / 行内出现的干支串只上色，不提升成块级盘——那会撑破结构。"""
+    return _GZ_RUN.sub(
+        lambda m: '<span class="gz-run">%s<i>／</i>%s</span>'
+                  % (_gz_seg(m.group(1), 'a'), _gz_seg(m.group(2), 'b')), s)
 
 
 def _lift_inline_chart(para):
@@ -141,12 +185,15 @@ def _lift_inline_chart(para):
 
 
 def _cells(line):
+    """拆表格行。⚠️ 必须先保护 `\\|` 转义——Obsidian 的 [[目标|显示文本]] 写在
+    表格里时会转义成 `\\|`，直接按 | 切会把一个链接劈成两个单元格。"""
     line = line.strip()
     if line.startswith('|'):
         line = line[1:]
     if line.endswith('|'):
         line = line[:-1]
-    return [c.strip() for c in line.split('|')]
+    line = line.replace('\\|', '\x00P\x00')
+    return [c.strip().replace('\x00P\x00', '|') for c in line.split('|')]
 
 
 def md2html(text, heading_offset=0, collect_headings=None):

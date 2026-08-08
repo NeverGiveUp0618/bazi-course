@@ -261,12 +261,18 @@ RENDER.outline = function () {
   bindDoc($('#outlineBody'));
 };
 
-/* 文内 [[wiki]] 跳转 */
+/* 文内跳转：[[wiki]] 与题号引用（原文里写作【21】） */
 function bindDoc(root) {
   $$('a.wiki', root).forEach(function (a) {
     a.onclick = function (e) {
       e.preventDefault();
       gotoWiki(a.dataset.wiki);
+    };
+  });
+  $$('a.qref', root).forEach(function (a) {
+    a.onclick = function (e) {
+      e.preventDefault();
+      show('quiz', +a.dataset.q);
     };
   });
 }

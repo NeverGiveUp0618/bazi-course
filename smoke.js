@@ -67,6 +67,19 @@ const wait = () => new Promise(r => setTimeout(r, 30));
      '干支已按五行上色，共 ' + D.querySelectorAll('#chapterBody [class*="w-"]').length + ' 字');
   ok($('#btnBack').classList.contains('show'), '返回键出现');
 
+  console.log('\n— 内容格式（括号换成样式、干支上色）—');
+  {
+    const h = $('#chapterBody').innerHTML;
+    const noPre = h.replace(/<pre[\s\S]*?<\/pre>/g, '');
+    ok(!/[【】]/.test(noPre), '正文不再有【】括号（流程图里的保留）');
+    ok(!/〔|〕/.test(noPre), '正文不再有〔〕括号');
+    ok(/class="src"/.test(h), '出处渲染成金色标签');
+    ok(/class="yw"/.test(h), '原文引用渲染成 <q class=yw>');
+    ok(D.querySelectorAll('#chapterBody .ichart').length >= 5,
+       '第8章命例全排成盘，共 ' + D.querySelectorAll('#chapterBody .ichart').length + ' 个');
+    ok(!/\[\[/.test(noPre), 'wiki 链接全部渲染，无残留 [[..]]');
+  }
+
   console.log('\n— 路由（套壳侧滑的关键）—');
   const before = $('#ttl').textContent;
   window.history.back(); await wait();
