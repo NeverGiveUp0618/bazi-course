@@ -76,6 +76,29 @@ CHART_RE = re.compile(
     r'\|\s*\|(.+?)\|\s*\n')
 
 
+def all_charts(b):
+    """采集题中全部四柱盘，供页面做「吸顶盘」用（不改动正文）。
+
+    多盘题要能分辨哪个是哪个，标签取表格前最近一行里的「命A/命B」；
+    题61 的第二个盘前是 `### 🔍 对照命B：…` 标题行，所以不能只认粗体。
+    """
+    out = []
+    clean = lambda xs: [x.strip().replace('**', '') for x in xs.split('|') if x.strip()]
+    ms = list(CHART_RE.finditer(b))
+    for i, m in enumerate(ms):
+        gan, zhi = clean(m.group(2)), clean(m.group(3))
+        if len(gan) != 4 or len(zhi) != 4:
+            continue
+        label = ''
+        if len(ms) > 1:
+            prev = [l for l in b[:m.start()].rstrip().split('\n') if l.strip()]
+            if prev:
+                lm = re.search(r'(命[A-Za-z甲乙丙丁一二三])', prev[-1])
+                label = lm.group(1) if lm else '盘%d' % (i + 1)
+        out.append({'g': m.group(1), 'gan': gan, 'zhi': zhi, 'label': label})
+    return out
+
+
 def parse_chart(b):
     """抽出四柱盘做题头的大盘；抽不出就原样留在正文里。
 
@@ -114,7 +137,8 @@ def build_quiz():
         stars = head.count('⭐')
         rest = b[m.end():]
 
-        n_charts = len(CHART_RE.findall(rest))
+        charts = all_charts(rest)          # 全部盘，供吸顶条用
+        n_charts = len(charts)
         chart, rest = parse_chart(rest)
         face, det, tail = split_details(rest)
 
@@ -157,6 +181,7 @@ def build_quiz():
             'star': stars,
             'chart': chart,      # 仅单盘题有：题头大盘
             'nCharts': n_charts,  # 盘总数：多盘题>1，筛「有完整盘」看这个
+            'charts': charts,     # 全部盘（含命A/命B标签），吸顶条用
             'face': md2html(face + tail, heading_offset=2),
             'jieLabel': summ or '解',
             'jie': jie_html,

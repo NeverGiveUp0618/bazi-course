@@ -54,6 +54,7 @@ var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
  * 所以照其余几个 App 的统一包装：前进 pushState，回到栈上已有的屏则
  * history.go(-n) 折叠，popstate 幂等重放。
  */
+var stickyIO = null;  // 吸顶盘的 IntersectionObserver（切屏要断开）
 var stack = [];   // 历史条目，与 history 的 state.i 一一对应
 var pos = 0;      // 当前所在下标
 var cur = { scr: 'home', id: null };
@@ -77,6 +78,10 @@ function _apply(scr, id) {
     b.classList.toggle('on', b.dataset.tab === scr);
   });
   $('#fabToc').style.display = (scr === 'chapter' || scr === 'note') ? 'block' : 'none';
+  if (scr !== 'quiz') {
+    $('#stickyChart').classList.remove('on');
+    if (stickyIO) { stickyIO.disconnect(); stickyIO = null; }
+  }
 
   RENDER[scr] && RENDER[scr](id);
   if (scr !== 'search') save(K.last, { scr: scr, id: id });
@@ -376,6 +381,7 @@ RENDER.quiz = function (n) {
     $('#quizBody').innerHTML = h;
     bindDoc($('#quizBody'));
     navBar(it);
+    setupSticky(it);
 
     $('#bJie').onclick = function () {
       $('#L1').innerHTML = '';
@@ -398,6 +404,40 @@ RENDER.quiz = function (n) {
     };
   });
 };
+
+/* ---------- 吸顶四柱盘 ----------
+ * 讲解与拆解里满是「卯戌合」「日支巳」这种指代盘上具体字的话，
+ * 盘滚出视野就得来回翻。滚过题头后把盘缩成一条钉在顶栏下方。
+ * 多盘对照题（题21/35 等 9 道）把两个盘都放上去，横向可滑。
+ */
+function setupSticky(it) {
+  var bar = $('#stickyChart');
+  if (stickyIO) { stickyIO.disconnect(); stickyIO = null; }
+  bar.classList.remove('on');
+
+  var cs = it.charts || [];
+  if (!cs.length) { bar.querySelector('.inner').innerHTML = ''; return; }
+
+  var pos = ['年', '月', '日', '时'];
+  bar.querySelector('.inner').innerHTML = cs.map(function (c) {
+    return '<div class="grp">' +
+      (c.label ? '<span class="lb">' + esc(c.label) + '</span>' : '') +
+      '<div class="cols">' + pos.map(function (p, i) {
+        return '<div class="c' + (i === 2 ? ' day' : '') + '">' +
+          '<div class="p">' + p + '</div>' +
+          '<div class="a">' + esc(c.gan[i]) + '</div>' +
+          '<div class="b">' + esc(c.zhi[i]) + '</div></div>';
+      }).join('') + '</div></div>';
+  }).join('');
+
+  // 题头盘（或题面首个表格）滚出视野时才亮出来，别一进来就占两层
+  var anchor = $('#quizBody .chart') || $('#quizBody table') || $('#quizBody .card');
+  if (!anchor || typeof IntersectionObserver === 'undefined') { bar.classList.add('on'); return; }
+  stickyIO = new IntersectionObserver(function (es) {
+    bar.classList.toggle('on', !es[0].isIntersecting);
+  }, { rootMargin: '-96px 0px 0px 0px', threshold: 0 });
+  stickyIO.observe(anchor);
+}
 
 /* 看过就记一笔，仅用于列表上的圆点与「没看过」筛选。不打分、不排复习。 */
 function markSeen(n) {

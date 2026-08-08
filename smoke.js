@@ -78,6 +78,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const r3 = Array.from(rows).find(r => r.querySelector('.n').textContent === '3');
   r3.click(); await wait();
   ok(D.querySelectorAll('.chart .col').length === 4, '单盘题：题头渲染 4 柱大盘');
+  ok($('#stickyChart').querySelectorAll('.c').length === 4, '单盘题：吸顶条 4 柱');
+  ok($('#stickyChart').querySelector('.c.day .a').textContent === '丙', '日柱标在第3柱(丙午)');
   ok(D.querySelector('#quizBody .doc').innerHTML.indexOf('<table>') < 0,
      '单盘题：盘已从正文抽走，不重复出现');
 
@@ -99,6 +101,14 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   $('#bChai').click(); await wait();
   ok($('#L3').innerHTML.includes('我补的推理'), '拆解展开且带免责声明');
 
+  console.log('\n— 吸顶四柱盘 —');
+  // jsdom 无 IntersectionObserver，会走 fallback 直接点亮
+  const sc = $('#stickyChart');
+  ok(sc.querySelectorAll('.grp').length === 2, '多盘题：吸顶条放两个盘，实为 ' + sc.querySelectorAll('.grp').length);
+  ok(/命A/.test(sc.innerHTML) && /命B/.test(sc.innerHTML), '两盘各带命A/命B标签');
+  ok(sc.querySelectorAll('.c').length === 8, '共 8 柱');
+  ok(sc.querySelectorAll('.c.day').length === 2, '每盘的日柱都被标出');
+
   console.log('\n— 看过标记（刻意不做 SRS／自评／错题）—');
   ok(!D.querySelector('#rate'), '没有自评面板');
   ok(!window.localStorage.getItem('bazi_course_srs'), '不写 SRS');
@@ -119,6 +129,10 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#bJie').textContent.includes('提示'), '反推题按钮显示「看提示方向」');
   $('#bJie').click(); await wait();
   ok($('#L2').innerHTML.includes('原书未给解'), '明确标注原书未给解');
+
+  console.log('\n— 离开题目页要清理吸顶条 —');
+  D.querySelector('[data-tab="course"]').click(); await wait();
+  ok(!$('#stickyChart').classList.contains('on'), '切到教材后吸顶盘隐藏');
 
   console.log('\n— 搜索 —');
   $('#btnSearch').click(); await wait();
