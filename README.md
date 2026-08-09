@@ -16,8 +16,13 @@ Obsidian（唯一内容源）                     本仓库
   实用八字教材/99-命例题库.md   ├─ build.py ─→  data/data-course.js
   八字01-14*.md               │                data/data-notes.js
   00-问题清单.md              ─┘                data/data-quiz.js
+                                                data/data-index.js
                                                 data/data-meta.js
 ```
+
+⚠️ `data-meta.js` 是**首屏同步加载**的那个包，只放统计与学习路线（10KB）。
+问题清单四张索引表 110KB，点进去才要，单独出 `data-index.js` 按需加载。
+往 meta 里塞大块内容会直接拖慢每一次冷启动。
 
 这么设计是因为这套内容还在持续改。若分叉成两份，早晚对不上——
 bazi-game 和 liuren-game 都踩过「知识说明与 JS 数据结构不一致」的坑。
@@ -55,8 +60,32 @@ python3 build.py && node smoke.js
 | | 内容 | 交互 |
 |---|---|---|
 | **学** | 教材 16 章 | 线性阅读、目录跳转、滚动记进度、上下章 |
-| **查** | 笔记 14 篇 + 问题清单四张索引表 | `[[wiki链接]]` 站内互跳、全文搜索 |
-| **练** | 命例 92 道 | 三层递进展开 + 吸顶四柱盘 + 上下题 + 考点筛选 |
+| **查** | 笔记 14 篇 + 问题清单四张索引表 | `[[wiki链接]]` 站内互跳、上下篇、全文搜索 |
+| **练** | 命例 92 道 | 三层递进展开 + 吸顶四柱盘 + 上下题 + 45 考点筛选 |
+
+### 搜索：命中要能被找到、被看见
+
+三条都踩过，改完别退回去：
+
+1. **一篇里的每一处都列出**（每篇上限 4 条，多的标「本篇另有 N 处」）。
+   以前 `text.indexOf(kw)` 取首个就 return，第 13 章「做功」27 次只给 1 条。
+2. **点结果滚到那一处并高亮**，不是回到文档顶部——一章六千字，回顶部等于让人再找一遍。
+   关键词常被行内标签劈开（`巳<strong>申</strong>合`），所以先把文本节点拼成一条串定位，
+   再用 Range 映射回 DOM；同节点内套 `<mark class=sr-kw>`，跨节点的 `surroundContents`
+   会抛错，退化成整段闪一下。
+3. **题库搜的是渲染 html 提出来的全文**，不是 `q.text`。
+   ⚠️ `build.py` 里 `'text': strip_md(b)[:600]` 是截断的，92 题里 80 题被砍，
+   平均只覆盖每题六成——答案和拆解基本搜不到。前端现提纯文本：覆盖 100%、
+   data 不涨一个字节，且顺序（标题→考点→题面→解→拆解）与展开后的 DOM 一致，
+   命中序号可以直接拿去定位。
+4. 命中若落在「解」或「拆解」里，跳过去**自动展开那一层**并说明原因——
+   否则点进来只看见题面，等于没搜到。
+
+### 考点筛选
+
+45 个考点**全部**可筛，默认显示前 14 个 + 「更多 31 个」。
+⚠️ 曾写死 `Q.tags.slice(0, 18)`，把「刑」「破」「空亡」「暗合」「羊刃」这些
+低频但正经的考点全埋了。当前选中的标签即便排在折叠区之后也始终可见。
 
 ### 吸顶四柱盘
 
@@ -115,6 +144,7 @@ python3 build.py && node smoke.js
 | `bazi_course_read` | `{章id: 阅读百分比 0-100}`，≥90 视为已读 |
 | `bazi_course_seen` | `{题号: 时间戳}` —— 看过答案的题 |
 | `bazi_course_last` | `{scr, id}` 供「继续上次」 |
+| `bazi_course_pos` | `{文档id: scrollTop}` —— 长文回来接着读（≥95% 的不再跳回） |
 | `bazi_course_theme` | `null`(跟随系统) / `'light'` / `'dark'` |
 
 ## 套壳适配（三个坑，别拆）
@@ -134,11 +164,11 @@ python3 build.py && node smoke.js
 ```
 index.html      页面骨架
 style.css       竹纸靛青主题（含深色模式）
-app.js          路由 / 渲染 / SRS / 搜索
+app.js          路由 / 渲染 / 搜索定位 / 阅读位置
 build.py        markdown → data/*.js  ⭐入口
 mdlite.py       零依赖 markdown 转换器
-smoke.js        jsdom 冒烟测试（34 项）
-data/*.js       产物，勿手改
+smoke.js        jsdom 冒烟测试（95 项）
+data/*.js       产物，勿手改（meta 进首屏，其余按需）
 sw.js           Service Worker（网络优先）
 manifest.json   PWA
 icon180/192/512.png

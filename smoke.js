@@ -11,7 +11,9 @@ const dom = new JSDOM(fs.readFileSync(path.join(dir, 'index.html'), 'utf8'), {
   runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://x.test/bazi-course/'
 });
 const { window } = dom;
-window.scrollTo = () => {};
+// 记下滚动调用——恢复阅读位置、搜索定位都靠它，不记就没法验真假
+let scrolls = [];
+window.scrollTo = (x, y) => { scrolls.push(typeof x === 'object' ? x.top : y); };
 window.matchMedia = window.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
 
 // 手动喂数据（jsdom 不发网络请求）
@@ -20,6 +22,7 @@ run('data/data-meta.js');
 run('data/data-course.js');
 run('data/data-notes.js');
 run('data/data-quiz.js');
+run('data/data-index.js');
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -160,12 +163,137 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#stickyChart').classList.contains('hide'), '切到教材后吸顶盘隐藏');
 
   console.log('\n— 搜索 —');
-  $('#btnSearch').click(); await wait();
-  $('#q').value = '巳申合';
-  $('#q').dispatchEvent(new window.Event('input'));
-  await new Promise(r => setTimeout(r, 400));
-  const hits = D.querySelectorAll('#hits [data-h]');
+  const search = async kw => {
+    $('#btnSearch').click(); await wait();
+    $('#q').value = kw;
+    $('#q').dispatchEvent(new window.Event('input'));
+    await new Promise(r => setTimeout(r, 400));
+    return D.querySelectorAll('#hits [data-h]');
+  };
+  const hits = await search('巳申合');
   ok(hits.length > 0, '搜到「巳申合」' + hits.length + ' 条');
+
+  console.log('\n— 搜索：一篇里的每一处都要列出（以前只给第一处）—');
+  {
+    const h = await search('做功');
+    const labels = Array.from(h).map(e => e.querySelector('b').textContent);
+    ok(labels.some(l => /第2处/.test(l)), '同一篇的第2处也单独成条');
+    const ch13 = labels.filter(l => /^第13章/.test(l));
+    ok(ch13.length > 1, '第13章「做功」27 次，列出 ' + ch13.length + ' 条（以前恒为 1 条）');
+    ok(/共 \d+ 处/.test($('#hits').innerHTML), '结果头部给出总处数');
+    ok(/本篇另有/.test($('#hits').innerHTML), '超出上限的标明「本篇另有 N 处」');
+  }
+
+  console.log('\n— 搜索：题库要能搜到答案与拆解（data 里的 text 被截到 600 字）—');
+  {
+    // 「羊刃」在题17 只出现在拆解里，旧的 q.text 截断后根本搜不到
+    const h = await search('羊刃');
+    const q17 = Array.from(h).find(e => /^题17/.test(e.querySelector('b').textContent));
+    ok(!!q17, '搜到题17 的「羊刃」——它只写在拆解里');
+    const raw = window.DATA_QUIZ.items.find(i => i.n === 17);
+    ok(raw.text.indexOf('羊刃') < 0, '（对照）data 的 text 字段里确实没有它，说明走的是新的全文提取');
+
+    q17.click(); await wait();
+    ok($('#ttl').textContent === '第 17 题', '点结果跳进题17');
+    ok($('#L2').innerHTML.length > 100, '命中在折叠层里 → 「解」自动展开');
+    ok($('#L3').innerHTML.includes('我补的推理'), '命中在拆解里 → 拆解也自动展开');
+    ok(/命中在.*已经展开/.test($('#toastTxt').textContent), '提示条说明了为什么自动展开');
+    ok(D.querySelectorAll('#quizBody mark.sr-kw, #quizBody .sr-blk').length > 0, '命中处被高亮');
+  }
+
+  console.log('\n— 搜索：跳进长文要滚到命中处，不是回到顶部 —');
+  {
+    const h = await search('巳申合');
+    const chHit = Array.from(h).find(e => /^第\d+章/.test(e.querySelector('b').textContent));
+    chHit.click(); await wait();
+    ok($('#s-chapter').classList.contains('active'), '跳进教材章节');
+    const marks = D.querySelectorAll('#chapterBody mark.sr-kw, #chapterBody .sr-blk');
+    ok(marks.length > 0, '章节正文里命中处已高亮');
+    ok(/巳申合/.test(marks[0].textContent) || marks[0].classList.contains('sr-blk'),
+       '高亮的正是关键词（跨标签时退化为整段）');
+  }
+
+  console.log('\n— 考点筛选：45 个全都要能筛到 —');
+  {
+    D.querySelector('[data-tab="qlist"]').click(); await wait();
+    const total = window.DATA_QUIZ.tags.length;
+    const folded = D.querySelectorAll('#qTags [data-t]').length - 1;   // 减掉「全部考点」
+    ok(!!$('#tagsMore'), '有「更多」展开入口');
+    $('#tagsMore').click(); await wait();
+    const opened = D.querySelectorAll('#qTags [data-t]').length - 1;
+    ok(opened === total, `展开后 ${total} 个考点全部列出，实为 ${opened}（收起时 ${folded}）`);
+    // 挑一个以前被 slice(0,18) 埋掉的低频考点，验证它真能筛
+    const rare = Array.from(D.querySelectorAll('#qTags [data-t]'))
+      .find(e => e.dataset.t === '空亡');
+    ok(!!rare, '低频考点「空亡」现在出现在筛选里');
+    rare.click(); await wait();
+    const n = D.querySelectorAll('#qRows [data-q]').length;
+    ok(n > 0 && n < 92, `按「空亡」筛出 ${n} 题`);
+    ok(D.querySelector('#qTags .pill.sel[data-t="空亡"]') !== null, '选中态可见（即便它排在折叠区之后）');
+    $('#qTags [data-t=""]').click(); await wait();
+  }
+
+  console.log('\n— 长文回来接着读 —');
+  {
+    window.localStorage.setItem('bazi_course_pos', JSON.stringify({ c5: 4200 }));
+    window.localStorage.setItem('bazi_course_read', JSON.stringify({ c5: 40 }));
+    scrolls = [];
+    D.querySelector('[data-tab="course"]').click(); await wait();
+    D.querySelectorAll('#courseList [data-ch]')[4].click(); await wait();
+    ok(scrolls.includes(4200), '进入第5章后滚回上次的位置 4200，实际滚动序列 ' + JSON.stringify(scrolls));
+    ok($('#toast').classList.contains('on'), '提示条出现');
+    ok(/上次读到/.test($('#toastTxt').textContent), '提示文案：' + $('#toastTxt').textContent);
+    $('#toastAct').click(); await wait();
+    ok(scrolls[scrolls.length - 1] === 0, '点「从头读」回到顶部');
+
+    // 快读完的不该再跳回去
+    window.localStorage.setItem('bazi_course_read', JSON.stringify({ c5: 97 }));
+    scrolls = [];
+    D.querySelector('[data-tab="course"]').click(); await wait();
+    D.querySelectorAll('#courseList [data-ch]')[4].click(); await wait();
+    ok(!scrolls.includes(4200), '已读 97% 的章节不再跳回，从头看更顺');
+    window.localStorage.removeItem('bazi_course_pos');
+    window.localStorage.removeItem('bazi_course_read');
+  }
+
+  console.log('\n— 笔记上/下篇 —');
+  {
+    D.querySelector('[data-tab="notes"]').click(); await wait();
+    D.querySelectorAll('#noteList [data-nt]')[3].click(); await wait();
+    ok($('#s-note').classList.contains('active'), '进入第4篇笔记');
+    const t0 = $('#ttl').textContent;
+    ok(!$('#nextNt').disabled, '「下一篇」可用');
+    ok($('#nextNt').textContent !== '下一篇 ›', '按钮上直接写出下一篇标题：' + $('#nextNt').textContent);
+    $('#nextNt').click(); await wait();
+    ok($('#ttl').textContent !== t0, '切到下一篇：' + $('#ttl').textContent);
+    $('#prevNt').click(); await wait();
+    ok($('#ttl').textContent === t0, '「上一篇」回到 ' + t0);
+    // 首尾要禁用
+    D.querySelector('[data-tab="notes"]').click(); await wait();
+    D.querySelectorAll('#noteList [data-nt]')[0].click(); await wait();
+    ok($('#prevNt').disabled, '第1篇的「上一篇」禁用');
+  }
+
+  console.log('\n— 首屏包 & 进度口径 —');
+  {
+    ok(!window.DATA_META.index, '问题清单已移出首屏包 data-meta.js');
+    ok(typeof window.DATA_INDEX === 'string' && window.DATA_INDEX.length > 10000,
+       '问题清单改为按需加载的 data-index.js');
+    const metaKB = fs.statSync(path.join(dir, 'data/data-meta.js')).size / 1024;
+    ok(metaKB < 20, `首屏 data-meta.js 降到 ${metaKB.toFixed(1)}KB（原 124KB）`);
+    D.querySelector('[data-tab="notes"]').click(); await wait();
+    $('[data-go2="index"]').click(); await wait();
+    ok($('#indexBody').innerHTML.length > 10000, '问题清单仍能正常打开');
+
+    window.localStorage.setItem('bazi_course_read',
+      JSON.stringify({ c1: 100, c2: 100, n1: 100, n2: 100, n3: 100 }));
+    D.querySelector('[data-tab="home"]').click(); await wait();
+    const chips = $('#progChips').textContent;
+    ok(/教材 2\/16/.test(chips), '首页显示 教材 2/16');
+    ok(/笔记 3\/14/.test(chips), '首页也显示 笔记 3/14（以前笔记根本不计）：' + chips);
+    ok(/命例/.test(chips), '首页显示 命例 N/92');
+    window.localStorage.removeItem('bazi_course_read');
+  }
 
   console.log('\n— 主题 —');
   $('#btnTheme').click();

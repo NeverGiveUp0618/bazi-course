@@ -278,14 +278,17 @@ def main():
             'quizChart': sum(1 for i in quiz['items'] if i['nCharts']),
             'quizChai': sum(1 for i in quiz['items'] if i['chai']),
         },
+        # outline 只有 6KB，留在首屏包里；index（问题清单四张表）70KB，
+        # 首页根本用不到，单独出一个文件按需加载。
         'outline': md2html(outline, heading_offset=0),
-        'index': md2html(index_md, heading_offset=0),
     }
 
     sizes = [
         ('data-course.js', write_js('data-course.js', 'DATA_COURSE', course)),
         ('data-notes.js', write_js('data-notes.js', 'DATA_NOTES', notes)),
         ('data-quiz.js', write_js('data-quiz.js', 'DATA_QUIZ', quiz)),
+        ('data-index.js', write_js('data-index.js', 'DATA_INDEX',
+                                   md2html(index_md, heading_offset=0))),
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
     ]
 

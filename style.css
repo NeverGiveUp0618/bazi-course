@@ -401,3 +401,39 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   animation:up .22s cubic-bezier(.2,.8,.3,1)
 }
 @keyframes up{from{transform:translateY(100%)}to{transform:none}}
+
+/* ---------- 搜索命中定位 ----------
+   颜色全走已有变量，四套主题块（bare / prefers-dark / [data-theme]）
+   都已定义过它们，这里不再重复声明，免得漏一处退回默认色。 */
+mark.sr-kw{
+  background:color-mix(in srgb,var(--gold) 38%, transparent);
+  color:inherit;border-radius:3px;padding:0 1px;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--gold) 55%, transparent);
+  animation:hitin 1.6s ease-out
+}
+/* 关键词被行内标签劈开时套不上 mark，退化成整段闪一下 */
+.sr-blk{
+  background:color-mix(in srgb,var(--gold) 14%, transparent);
+  border-radius:6px;box-shadow:0 0 0 4px color-mix(in srgb,var(--gold) 14%, transparent);
+  animation:hitin 1.6s ease-out
+}
+@keyframes hitin{
+  0%{background:color-mix(in srgb,var(--gold) 70%, transparent)}
+  100%{}
+}
+
+/* ---------- 底部提示条 ---------- */
+.toast{
+  position:fixed;left:12px;right:12px;bottom:calc(58px + env(safe-area-inset-bottom));
+  z-index:60;display:none;align-items:center;gap:10px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  padding:10px 12px;font-size:13px;color:var(--ink2);
+  box-shadow:0 6px 20px rgba(0,0,0,.14)
+}
+.toast.on{display:flex;animation:fade .2s ease-out}
+.toast span{flex:1;line-height:1.5}
+.toast button{
+  flex:0 0 auto;border:0;background:var(--indigo-soft);color:var(--indigo);
+  font-size:12.5px;padding:6px 11px;border-radius:8px;cursor:pointer
+}
+html.wst-frame-guard .toast{bottom:calc(58px + 12px)}

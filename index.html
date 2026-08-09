@@ -82,7 +82,13 @@
 
   <!-- 笔记列表 -->
   <section class="screen" id="s-notes"><div id="noteList"></div></section>
-  <section class="screen" id="s-note"><div id="noteBody" class="doc"></div></section>
+  <section class="screen" id="s-note">
+    <div id="noteBody" class="doc"></div>
+    <div class="row spread" style="margin:26px 0 8px;gap:10px">
+      <button class="btn" id="prevNt">‹ 上一篇</button>
+      <button class="btn" id="nextNt">下一篇 ›</button>
+    </div>
+  </section>
 
   <!-- 索引 / 路线 -->
   <section class="screen" id="s-index"><div id="indexBody" class="doc"></div></section>
@@ -121,6 +127,9 @@
 <button class="fab" id="fabToc" style="display:none" aria-label="目录">☰</button>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+
+<!-- 恢复阅读位置／搜索定位后的一行提示，几秒后自动消失 -->
+<div class="toast" id="toast"><span id="toastTxt"></span><button id="toastAct"></button></div>
 
 <script src="data/data-meta.js"></script>
 <script src="app.js"></script>

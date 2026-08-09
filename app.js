@@ -15,6 +15,7 @@ var META = window.DATA_META || {};
  *   bazi_course_read  {文档id: 阅读百分比 0-100}   c1..c16 教材 / n1..n14 笔记
  *   bazi_course_seen  {题号: 时间戳}               看过答案的题
  *   bazi_course_last  {scr, id}
+ *   bazi_course_pos   {文档id: scrollTop}         上次读到哪（长文回来接着读用）
  *
  * ⚠️ 刻意不做 SRS／错题本／自评打分（用户 2026-08-08 要求「练就简单点」）。
  *    命例是主观题，本来也没法客观判分；这里只留一个「看过」标记，
@@ -24,6 +25,7 @@ var K = {
   read: 'bazi_course_read',
   seen: 'bazi_course_seen',
   last: 'bazi_course_last',
+  pos:  'bazi_course_pos',
   theme: 'bazi_course_theme'
 };
 function ls(k, d) {
@@ -47,6 +49,8 @@ function need(file, globalName) {
 var needCourse = function () { return need('data-course.js', 'DATA_COURSE'); };
 var needNotes  = function () { return need('data-notes.js', 'DATA_NOTES'); };
 var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
+// 问题清单 70KB，只有点进「四张索引表」才要，不进首屏包
+var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 
 /* ============================ 路由 ============================
  * 套壳(view.html)里 iframe 与顶层共享同一条 session history。
@@ -78,14 +82,20 @@ function _apply(scr, id) {
   });
   $('#fabToc').style.display = (scr === 'chapter' || scr === 'note') ? 'block' : 'none';
   if (scr !== 'quiz') $('#stickyChart').classList.add('hide');
+  hideToast();
 
   RENDER[scr] && RENDER[scr](id);
   if (scr !== 'search') save(K.last, { scr: scr, id: id });
   window.scrollTo(0, 0);
 }
 
-function show(scr, id) {
-  if (scr === cur.scr && id === cur.id) return;
+function show(scr, id, find) {
+  // find＝{kw,occ}：从搜索结果跳过来时，渲染完要滚到那一处并高亮
+  pendingFind = find || null;
+  if (scr === cur.scr && id === cur.id) {
+    if (find) _apply(scr, id);   // 已经在这一屏，也要重新定位
+    return;
+  }
   // 目标已在当前位置之前 → 折叠回去，不要堆重复条目
   for (var k = 0; k <= pos && k < stack.length; k++) {
     if (stack[k].scr === scr && stack[k].id === id) {
@@ -131,6 +141,125 @@ function gz(c, cls) {
   return '<span class="' + cls + (WX[c] ? ' w-' + WX[c] : '') + '">' + esc(c) + '</span>';
 }
 
+/* ============================ 提示条 ============================ */
+var toastTimer = null;
+function toast(msg, actLabel, actFn) {
+  var t = $('#toast');
+  if (!t) return;
+  $('#toastTxt').textContent = msg;
+  var b = $('#toastAct');
+  if (actLabel) {
+    b.textContent = actLabel;
+    b.style.display = '';
+    b.onclick = function () { hideToast(); actFn(); };
+  } else b.style.display = 'none';
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, 5000);
+}
+function hideToast() {
+  var t = $('#toast');
+  if (t) t.classList.remove('on');
+  clearTimeout(toastTimer);
+}
+
+/* ==================== 搜索定位：滚到命中处并高亮 ====================
+ * 搜索结果点进来，以前是回到文档顶部——一章六千字，等于让人再找一遍。
+ *
+ * ⚠️ 关键词常被行内标签劈成多个文本节点（「巳<strong>申</strong>合」），
+ *    所以先把全部文本节点拼成一条串、在串上定位，再用 Range 映射回 DOM。
+ *    同节点内的命中精确套 <mark>；跨节点的 surroundContents 会抛错，
+ *    退化成整段闪一下——照样看得见，不会因为一个高亮把页面搞崩。
+ */
+var pendingFind = null;
+function takeFind() { var f = pendingFind; pendingFind = null; return f; }
+
+var BLOCKISH = { P: 1, LI: 1, TD: 1, TH: 1, DIV: 1, BLOCKQUOTE: 1, PRE: 1,
+                 H1: 1, H2: 1, H3: 1, H4: 1, TABLE: 1 };
+
+function findInDoc(roots, kw, occ) {
+  if (!kw) return false;
+  roots = [].concat(roots).filter(Boolean);
+  if (!roots.length) return false;
+
+  var nodes = [], text = '';
+  roots.forEach(function (root) {
+    var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null, false), n;
+    while ((n = w.nextNode())) { nodes.push({ node: n, at: text.length }); text += n.nodeValue; }
+  });
+
+  var idx = -1, from = 0;
+  for (var k = 0; k <= (occ || 0); k++) {
+    idx = text.indexOf(kw, from);
+    if (idx < 0) break;
+    from = idx + 1;
+  }
+  // 序号对不上（纯文本与 DOM 之间总有细微出入）就退回第一处，别放弃定位
+  if (idx < 0) idx = text.indexOf(kw);
+  if (idx < 0) return false;
+
+  function locate(p) {
+    for (var i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i].at <= p) return { node: nodes[i].node, off: p - nodes[i].at };
+    }
+    return null;
+  }
+  var a = locate(idx), b = locate(idx + kw.length - 1);
+  if (!a || !b) return false;
+
+  var target = null;
+  try {
+    var r = document.createRange();
+    r.setStart(a.node, a.off);
+    r.setEnd(b.node, Math.min(b.off + 1, b.node.nodeValue.length));
+    var m = document.createElement('mark');
+    m.className = 'sr-kw';
+    r.surroundContents(m);        // 跨标签时抛错 → 走下面的整段高亮
+    target = m;
+  } catch (e) {
+    var blk = a.node.parentNode;
+    while (blk && !BLOCKISH[blk.tagName] && blk.parentNode) blk = blk.parentNode;
+    if (blk && blk.classList) { blk.classList.add('sr-blk'); target = blk; }
+  }
+  if (!target) return false;
+
+  // jsdom 没实现 scrollIntoView，别让它把整条渲染带崩
+  try { target.scrollIntoView({ block: 'center' }); } catch (e2) {
+    try { window.scrollTo(0, target.offsetTop - 120); } catch (e3) {}
+  }
+  return true;
+}
+
+/* ==================== 长文回来接着读 ====================
+ * 教材一章平均六千字、最长九千字，读到一半退出，回来不该从头开始。
+ * read[id] 只记百分比（给列表看），这里另存实际 scrollTop。
+ */
+function savePos(id) {
+  var y = document.documentElement.scrollTop || document.body.scrollTop || 0;
+  var p = ls(K.pos, {});
+  if (Math.abs((p[id] || 0) - y) < 40) return;
+  p[id] = y;
+  save(K.pos, p);
+}
+function restorePos(id) {
+  var y = (ls(K.pos, {}))[id] || 0;
+  var read = ls(K.read, {});
+  // 快读完的（≥95%）不必再跳回去，从头重看更顺
+  if (y < 300 || (read[id] || 0) >= 95) return false;
+  try { window.scrollTo(0, y); } catch (e) {}
+  toast('已回到上次读到的地方', '从头读', function () { window.scrollTo(0, 0); });
+  return true;
+}
+
+/* 文档渲染完的统一收尾：优先搜索定位，其次恢复上次位置 */
+function afterDoc(root, id) {
+  var f = takeFind();
+  if (f) {
+    if (findInDoc(root, f.kw, f.occ)) return;
+  }
+  restorePos(id);
+}
+
 /* ---------- 首页 ---------- */
 RENDER.home = function () {
   var c = META.counts || {};
@@ -140,18 +269,23 @@ RENDER.home = function () {
   $('#buildInfo').textContent = '内容更新于 ' + (META.built || '—');
 
   var read = ls(K.read, {});
-  // read 里教材(c*)与笔记(n*)混存，进度只算教材
-  var chDone = Object.keys(read).filter(function (k) {
-    return k.charAt(0) === 'c' && read[k] >= 90;
-  }).length;
+  // ⚠️ read 里教材(c*)与笔记(n*)混存，数"章"只能取 c 开头
+  function done(pre) {
+    return Object.keys(read).filter(function (k) {
+      return k.charAt(0) === pre && read[k] >= 90;
+    }).length;
+  }
+  var chDone = done('c'), ntDone = done('n');
   var qDone = Object.keys(ls(K.seen, {})).length;
-  var total = (c.course || 16) + (c.quiz || 92);
-  var pct = Math.round((chDone + qDone) / total * 100);
+  // 口径与五术堂导航看板一致：教材16 + 笔记14 + 命例92
+  var total = (c.course || 16) + (c.notes || 14) + (c.quiz || 92);
+  var pct = Math.round((chDone + ntDone + qDone) / total * 100);
   $('#progPct').textContent = pct + '%';
   $('#progBar').style.width = pct + '%';
 
   $('#progChips').innerHTML =
     '<span class="pill g">教材 ' + chDone + '/' + (c.course || 16) + '</span>' +
+    '<span class="pill g">笔记 ' + ntDone + '/' + (c.notes || 14) + '</span>' +
     '<span class="pill g">命例 ' + qDone + '/' + (c.quiz || 92) + '</span>';
 
   var last = ls(K.last, null);
@@ -209,6 +343,7 @@ RENDER.chapter = function (n) {
     $('#prevCh').onclick = function () { show('chapter', n - 1); };
     $('#nextCh').onclick = function () { show('chapter', n + 1); };
     trackRead(c.id);
+    afterDoc($('#chapterBody'), c.id);
   });
 };
 
@@ -248,13 +383,32 @@ RENDER.note = function (n) {
     $('#ttl').textContent = c.title;
     $('#noteBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + c.html;
     bindDoc($('#noteBody'));
+
+    // 上/下篇：笔记按 n 排序，前后各取一篇（教材早就有，笔记之前只能退回列表）
+    var i = -1;
+    for (var k = 0; k < list.length; k++) if (list[k].n === n) { i = k; break; }
+    var prev = i > 0 ? list[i - 1] : null;
+    var next = i >= 0 && i < list.length - 1 ? list[i + 1] : null;
+    $('#prevNt').disabled = !prev;
+    $('#nextNt').disabled = !next;
+    $('#prevNt').textContent = prev ? '‹ ' + prev.title : '‹ 上一篇';
+    $('#nextNt').textContent = next ? next.title + ' ›' : '下一篇 ›';
+    $('#prevNt').onclick = prev ? function () { show('note', prev.n); } : null;
+    $('#nextNt').onclick = next ? function () { show('note', next.n); } : null;
+
     trackRead(c.id);
+    afterDoc($('#noteBody'), c.id);
   });
 };
 
 RENDER.index = function () {
-  $('#indexBody').innerHTML = META.index || '';
-  bindDoc($('#indexBody'));
+  var box = $('#indexBody');
+  box.innerHTML = '<div class="empty">载入中…</div>';
+  needIndex().then(function (html) {
+    box.innerHTML = html || '';
+    bindDoc(box);
+    afterDoc(box, 'index');
+  });
 };
 RENDER.outline = function () {
   $('#outlineBody').innerHTML = META.outline || '';
@@ -302,11 +456,13 @@ function trackRead(id) {
     var p = max <= 0 ? 100 : Math.min(100, Math.round((h.scrollTop / max) * 100));
     var read = ls(K.read, {});
     if (p > (read[id] || 0)) { read[id] = p; save(K.read, read); }
+    savePos(id);   // 百分比只够列表显示，回来接着读要的是实际位置
   }, 1500);
 }
 
 /* ---------- 题库 ---------- */
 var qFilter = { mode: 'all', tag: null };
+var tagsOpen = false;
 
 RENDER.qlist = function () {
   var box = $('#qRows');
@@ -328,15 +484,32 @@ RENDER.qlist = function () {
       el.onclick = function () { qFilter.mode = el.dataset.m; RENDER.qlist(); };
     });
 
+    /* 考点标签：45 个全都要能筛到。
+       以前写死 slice(0,18)，「刑」「破」「空亡」「暗合」「羊刃」这些
+       低频但正经的考点全被埋了，筛不出来。现在默认收起，一键展开全部；
+       当前选中的那个即便排在后面也始终可见。 */
+    var FOLD = 14;
+    var shown = tagsOpen ? Q.tags : Q.tags.slice(0, FOLD);
+    if (qFilter.tag && !shown.some(function (t) { return t[0] === qFilter.tag; })) {
+      var sel = Q.tags.filter(function (t) { return t[0] === qFilter.tag; });
+      shown = sel.concat(shown);
+    }
     $('#qTags').innerHTML = '<span class="pill' + (qFilter.tag ? ' g' : ' sel') +
       '" data-t="">全部考点</span>' +
-      Q.tags.slice(0, 18).map(function (t) {
+      shown.map(function (t) {
         return '<span class="pill' + (qFilter.tag === t[0] ? ' sel' : ' g') +
           '" data-t="' + esc(t[0]) + '">' + esc(t[0]) + ' ' + t[1] + '</span>';
-      }).join('');
+      }).join('') +
+      (Q.tags.length > FOLD
+        ? '<span class="pill g" id="tagsMore">' +
+          (tagsOpen ? '收起 ‹' : '更多 ' + (Q.tags.length - FOLD) + ' 个 ›') + '</span>'
+        : '');
     $$('[data-t]').forEach(function (el) {
       el.onclick = function () { qFilter.tag = el.dataset.t || null; RENDER.qlist(); };
     });
+    if ($('#tagsMore')) {
+      $('#tagsMore').onclick = function () { tagsOpen = !tagsOpen; RENDER.qlist(); };
+    }
 
     var list = Q.items.filter(function (it) {
       if (qFilter.tag && it.tags.indexOf(qFilter.tag) < 0) return false;
@@ -391,7 +564,13 @@ RENDER.quiz = function (n) {
     navBar(it);
     setupSticky(it);
 
-    $('#bJie').onclick = function () {
+    function openChai() {
+      $('#L3').innerHTML = '<div class="reveal chai doc">' +
+        '<div class="muted" style="margin-bottom:8px">我补的推理，非原文，可推翻。</div>' +
+        it.chai + '</div>';
+      bindDoc($('#L3'));
+    }
+    function openJie() {
       $('#L1').innerHTML = '';
       var body = it.noAnswer
         ? '<div class="muted" style="margin-bottom:6px">⚠️ 原书未给解，这是反推题——下面只有方向，没有答案。</div>' + it.jie
@@ -401,17 +580,36 @@ RENDER.quiz = function (n) {
       if (it.chai) {
         $('#L3').innerHTML = '<button class="btn" id="bChai" style="width:100%;margin-top:10px">' +
           '🔍 还是不懂 · 看拆解</button>';
-        $('#bChai').onclick = function () {
-          $('#L3').innerHTML = '<div class="reveal chai doc">' +
-            '<div class="muted" style="margin-bottom:8px">我补的推理，非原文，可推翻。</div>' +
-            it.chai + '</div>';
-          bindDoc($('#L3'));
-        };
+        $('#bChai').onclick = openChai;
       }
       markSeen(it.n);
-    };
+    }
+    $('#bJie').onclick = openJie;
+
+    /* 从搜索跳进来：命中可能落在「解」或「拆解」里，那两层默认是收着的，
+       不展开的话点进来只看见题面，等于没搜到。按命中位置自动拆到那一层。 */
+    var f = takeFind();
+    if (f) {
+      var inFace = plain(it.face).indexOf(f.kw) >= 0;
+      var inJie  = plain(it.jie).indexOf(f.kw) >= 0;
+      if (!inFace) {
+        openJie();
+        if (!inJie && it.chai) openChai();
+        toast('命中在' + (inJie ? '答案' : '拆解') + '里，已经展开');
+      }
+      findInDoc($('#quizBody'), f.kw, f.occ);
+    }
   });
 };
+
+/* HTML → 纯文本。搜索与「命中在哪一层」都靠它。 */
+var _pd = null;
+function plain(html) {
+  if (!html) return '';
+  if (!_pd) _pd = document.createElement('div');
+  _pd.innerHTML = html;
+  return _pd.textContent || '';
+}
 
 /* ---------- 吸顶四柱盘 ----------
  * 讲解与拆解里满是「卯戌合」「日支巳」这种指代盘上具体字的话，
@@ -466,34 +664,79 @@ function navBar(it) {
 /* ---------- 搜索 ---------- */
 RENDER.search = function () { setTimeout(function () { $('#q').focus(); }, 80); };
 
+/* 题库的可搜索全文。
+ * ⚠️ data 里的 q.text 是 strip_md(b)[:600]——截断的，92 题里 80 题被砍，
+ *    平均只覆盖每题六成，答案和拆解基本搜不到。
+ *    这里改从渲染用的 html 现提纯文本：覆盖 100%，且不给 data 多加一个字节。
+ *    顺序 标题→考点→题面→解→拆解 与题目页展开后的 DOM 顺序一致，
+ *    所以「第几次出现」的序号可以直接拿去定位。
+ */
+var qTextCache = null;
+function quizTexts(Q) {
+  if (qTextCache) return qTextCache;
+  qTextCache = Q.items.map(function (it) {
+    return it.title + ' ' + (it.tags || []).join(' ') + ' ' +
+           plain(it.face) + plain(it.jie) + plain(it.chai);
+  });
+  return qTextCache;
+}
+
+var PER_DOC = 4;      // 同一篇最多列几条，免得一章刷满整屏
+var MAX_HITS = 260;
+
 function doSearch() {
   var kw = $('#q').value.trim();
   var box = $('#hits');
   if (kw.length < 1) { box.innerHTML = '<div class="empty">输入关键词开始搜索</div>'; return; }
   box.innerHTML = '<div class="empty">搜索中…</div>';
   Promise.all([needCourse(), needNotes(), needQuiz()]).then(function (r) {
-    var hits = [];
+    var hits = [], total = 0, capped = false;
+
+    // 一篇文档里的每一处命中都列出来（上限 PER_DOC），并记下是第几处，
+    // 点进去就能直接滚到那一处——以前只给第一处、还回到文档顶部。
     function scan(text, label, scr, id) {
-      var i = text.indexOf(kw);
-      if (i < 0) return;
-      var s = Math.max(0, i - 30);
-      hits.push({
-        label: label, scr: scr, id: id,
-        snip: (s > 0 ? '…' : '') + text.slice(s, i) +
-              '<em>' + esc(kw) + '</em>' + text.slice(i + kw.length, i + kw.length + 60) + '…'
-      });
+      var at = -1, occ = 0, listed = 0, more = 0;
+      while ((at = text.indexOf(kw, at + 1)) >= 0) {
+        if (listed < PER_DOC && hits.length < MAX_HITS) {
+          var s = Math.max(0, at - 28);
+          hits.push({
+            label: label + (occ ? ' · 第' + (occ + 1) + '处' : ''),
+            scr: scr, id: id, occ: occ,
+            snip: (s > 0 ? '…' : '') + esc(text.slice(s, at)) +
+                  '<em>' + esc(kw) + '</em>' +
+                  esc(text.slice(at + kw.length, at + kw.length + 56)) + '…'
+          });
+          listed++;
+        } else more++;
+        occ++; total++;
+      }
+      if (more > 0) hits[hits.length - 1].more = more;
+      if (hits.length >= MAX_HITS) capped = true;
     }
+
     r[0].forEach(function (c) { scan(c.text, '第' + c.n + '章 · ' + c.title, 'chapter', c.n); });
     r[1].forEach(function (c) { scan(c.text, '笔记 · ' + c.title, 'note', c.n); });
-    r[2].items.forEach(function (q) { scan(q.text, '题' + q.n + ' · ' + q.title, 'quiz', q.n); });
+    var qt = quizTexts(r[2]);
+    r[2].items.forEach(function (q, i) {
+      scan(qt[i], '题' + q.n + ' · ' + q.title, 'quiz', q.n);
+    });
 
     if (!hits.length) { box.innerHTML = '<div class="empty">没找到「' + esc(kw) + '」</div>'; return; }
-    box.innerHTML = '<div class="muted" style="margin-bottom:8px">' + hits.length + ' 条结果</div>' +
+    box.innerHTML =
+      '<div class="muted" style="margin-bottom:8px">共 ' + total + ' 处' +
+        (hits.length < total ? '，列出 ' + hits.length + ' 条' : '') +
+        (capped ? '（已达上限，缩小关键词看更全）' : '') + '</div>' +
       hits.map(function (h, i) {
-        return '<div class="hit" data-h="' + i + '"><b>' + esc(h.label) + '</b><p>' + h.snip + '</p></div>';
+        return '<div class="hit" data-h="' + i + '"><b>' + esc(h.label) + '</b>' +
+          (h.more ? '<span class="pill g" style="margin-left:6px;font-size:10px">本篇另有 ' +
+                    h.more + ' 处</span>' : '') +
+          '<p>' + h.snip + '</p></div>';
       }).join('');
     $$('[data-h]', box).forEach(function (el) {
-      el.onclick = function () { var h = hits[+el.dataset.h]; show(h.scr, h.id); };
+      el.onclick = function () {
+        var h = hits[+el.dataset.h];
+        show(h.scr, h.id, { kw: kw, occ: h.occ });
+      };
     });
   });
 }
