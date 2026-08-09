@@ -295,6 +295,28 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     window.localStorage.removeItem('bazi_course_read');
   }
 
+  console.log('\n— 内容会一直加：分母不能写死 —');
+  {
+    const c = JSON.parse(window.localStorage.getItem('bazi_course_counts') || '{}');
+    ok(c.course === 16 && c.notes === 14 && c.quiz === 92,
+       '启动时把真实总量写给导航看板：' + JSON.stringify(c));
+
+    // 看板在另一个仓库(mingli-home)，这里直接把它那段口径搬过来跑一遍，
+    // 免得哪天它悄悄退回写死的 16/14/92
+    const home = fs.readFileSync(
+      path.join(dir, '..', 'mingli-home', 'index.html'), 'utf8');
+    const seg = (home.match(/jingjiang:function\(\)\{[\s\S]*?\n    \}/) || [''])[0];
+    ok(seg.length > 100, '找到看板的 jingjiang 统计段');
+    ok(/bazi_course_counts/.test(seg), '看板改为读 bazi_course_counts 当分母');
+    ok(!/\/16 章|\/14 篇|\/92 题/.test(seg), '看板里不再有写死的 /16 /14 /92');
+
+    // build.py 的自检必须是下限而非等号，否则加第15篇笔记会直接构建失败
+    const bp = fs.readFileSync(path.join(dir, 'build.py'), 'utf8');
+    ok(!/len\(notes\) != 14|len\(course\) != 16/.test(bp),
+       'build.py 不再用 != 钉死数量');
+    ok(/got\[k\] < base/.test(bp), 'build.py 改成「跌破基线才报错」');
+  }
+
   console.log('\n— 主题 —');
   $('#btnTheme').click();
   ok(D.documentElement.getAttribute('data-theme') === 'dark', '切到深色');

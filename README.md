@@ -27,6 +27,18 @@ Obsidian（唯一内容源）                     本仓库
 这么设计是因为这套内容还在持续改。若分叉成两份，早晚对不上——
 bazi-game 和 liuren-game 都踩过「知识说明与 JS 数据结构不一致」的坑。
 
+## ⭐ 内容会一直加 —— 分母别写死
+
+用户新问一题就多一篇笔记，新读一本书就多几道命例。所以：
+
+- **`build.py` 的自检是下限，不是等号**。少了报错退出（解析器吞内容才是要防的），
+  多了只提示一句并告诉你把 `BASE` 抬到多少。
+  ⚠️ 曾写成 `if len(notes) != 14`，加第 15 篇笔记会直接构建失败。
+- **五术堂看板的分母读 `bazi_course_counts`**（本站启动时写入），
+  不再把 `/16 章 /14 篇 /92 题` 写死在字符串里。
+  ⚠️ 那段代码在**另一个仓库** `mingli-home/index.html`，smoke.js 里有断言直接读它，
+  免得哪天悄悄退回写死。
+
 ## 改内容的流程
 
 1. 在 Obsidian 里正常写 markdown
@@ -145,6 +157,7 @@ python3 build.py && node smoke.js
 | `bazi_course_seen` | `{题号: 时间戳}` —— 看过答案的题 |
 | `bazi_course_last` | `{scr, id}` 供「继续上次」 |
 | `bazi_course_pos` | `{文档id: scrollTop}` —— 长文回来接着读（≥95% 的不再跳回） |
+| `bazi_course_counts` | `{course, notes, quiz, …}` —— 内容总量，写给导航看板当**分母** |
 | `bazi_course_theme` | `null`(跟随系统) / `'light'` / `'dark'` |
 
 ## 套壳适配（三个坑，别拆）
@@ -167,7 +180,7 @@ style.css       竹纸靛青主题（含深色模式）
 app.js          路由 / 渲染 / 搜索定位 / 阅读位置
 build.py        markdown → data/*.js  ⭐入口
 mdlite.py       零依赖 markdown 转换器
-smoke.js        jsdom 冒烟测试（95 项）
+smoke.js        jsdom 冒烟测试（101 项）
 data/*.js       产物，勿手改（meta 进首屏，其余按需）
 sw.js           Service Worker（网络优先）
 manifest.json   PWA

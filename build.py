@@ -300,29 +300,46 @@ def main():
         print(f'  {name:18} {size/1024:8.1f} KB')
     print(f'  {"合计":18} {sum(s for _, s in sizes)/1024:8.1f} KB')
 
-    # 完整性自检：数量对不上就报错，别让站默默少内容
-    bad = []
-    if len(course) != 16:
-        bad.append(f'教材应为16章，实得{len(course)}')
-    if len(notes) != 14:
-        bad.append(f'笔记应为14篇，实得{len(notes)}')
-    # 74 而非 75：题61 的题面盘原书没给全（两柱写作「？」），不算有完整盘。
+    # ===== 完整性自检 =====
+    # 这套内容会持续加（用户新问一题就多一篇笔记／多一道命例），
+    # 所以基线是**下限**不是等号：
+    #   少了 → 报错退出（解析器吞内容了，这才是自检要防的）
+    #   多了 → 只提示一句，顺手把基线抬上去，别拦着新内容进站。
+    # ⚠️ 曾经写成 `!= 14`，加第15篇笔记会直接构建失败。
+    BASE = {'course': 16, 'notes': 14, 'quiz': 92, 'chart': 74, 'chai': 86}
+
     nc = sum(1 for i in quiz['items'] if i['nCharts'])
-    if nc != 74:
-        bad.append(f'有完整四柱的题应为74，实得{nc}')
-    if len(quiz['items']) != 92:
-        bad.append(f'题库应为92题，实得{len(quiz["items"])}')
+    chai = sum(1 for i in quiz['items'] if i['chai'])
+    got = {'course': len(course), 'notes': len(notes),
+           'quiz': len(quiz['items']), 'chart': nc, 'chai': chai}
+    NAME = {'course': '教材章数', 'notes': '笔记篇数', 'quiz': '题库题数',
+            # 74 而非 75：题61 的题面盘原书没给全（两柱写作「？」），不算有完整盘
+            'chart': '有完整四柱的题', 'chai': '带拆解的题'}
+
+    bad, grew = [], []
+    for k, base in BASE.items():
+        if got[k] < base:
+            bad.append(f'{NAME[k]}少了：基线{base}，实得{got[k]}')
+        elif got[k] > base:
+            grew.append(f'{NAME[k]} {base} → {got[k]}')
+
     # 有解＝有独立「解」层，或解写在题面的引用块里（题37/76/92 那种）
     miss = [i['n'] for i in quiz['items']
             if not i['jie'] and not i['noAnswer'] and '<blockquote>' not in i['face']]
     if miss:
         bad.append(f'这些题既无解也未标为反推题：{miss}')
+    # 反推题只查"这6道必须还在"，新加的反推题不算错
     na = [i['n'] for i in quiz['items'] if i['noAnswer']]
-    if na != [19, 20, 53, 67, 77, 90]:
-        bad.append(f'反推题应为 [19,20,53,67,77,90]，实得 {na}')
-    chai = sum(1 for i in quiz['items'] if i['chai'])
-    if chai != 86:
-        bad.append(f'拆解应为86道，实得{chai}')
+    lost = [n for n in (19, 20, 53, 67, 77, 90) if n not in na]
+    if lost:
+        bad.append(f'原有反推题不见了：{lost}（实得 {na}）')
+
+    if grew and not bad:
+        print('\n📈 内容变多了：' + '，'.join(grew))
+        print(f'   记得把 build.py 的 BASE 抬到 ' +
+              '{' + ', '.join(f"'{k}': {got[k]}" for k in BASE) + '}')
+        print('   还有 mingli-home 看板的分母（它读 bazi_course_counts，通常会自动跟上）')
+
     if bad:
         print('\n⚠️  自检未通过：')
         for b in bad:

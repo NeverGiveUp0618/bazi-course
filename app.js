@@ -26,6 +26,9 @@ var K = {
   seen: 'bazi_course_seen',
   last: 'bazi_course_last',
   pos:  'bazi_course_pos',
+  // 内容总量，写给五术堂导航看板当分母用——内容会一直加，
+  // 看板那边不该再把 16/14/92 写死在字符串里
+  counts: 'bazi_course_counts',
   theme: 'bazi_course_theme'
 };
 function ls(k, d) {
@@ -802,6 +805,7 @@ try {
 }
 
 /* 启动 */
+save(K.counts, META.counts || {});   // 把分母同步给导航看板
 history.replaceState({ i: 0 }, '', '');
 stack = [{ scr: 'home', id: null }];
 pos = 0;
