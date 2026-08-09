@@ -277,6 +277,10 @@ function bindDoc(root) {
   });
 }
 function gotoWiki(name) {
+  // 先认几个整页目标，否则「99-命例题库」会被下面的章号规则误当成第99章
+  if (/问题清单/.test(name)) { show('index', null); return; }
+  if (/总目录|学习路线/.test(name)) { show('outline', null); return; }
+  if (/命例题库/.test(name)) { show('qlist', null); return; }
   var m = /八字(\d+)/.exec(name);
   if (m) { show('note', +m[1]); return; }
   m = /题\s*(\d+)/.exec(name);

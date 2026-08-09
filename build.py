@@ -69,6 +69,9 @@ def strip_summary(block):
     return summ, body
 
 
+GAN = '甲乙丙丁戊己庚辛壬癸'
+ZHI = '子丑寅卯辰巳午未申酉戌亥'
+
 CHART_RE = re.compile(
     r'\|\s*\|\s*年\s*\|\s*月\s*\|\s*日\s*\|\s*时\s*\|\s*\n'
     r'\|[-\s|]+\|\s*\n'
@@ -88,6 +91,9 @@ def all_charts(b):
     for i, m in enumerate(ms):
         gan, zhi = clean(m.group(2)), clean(m.group(3))
         if len(gan) != 4 or len(zhi) != 4:
+            continue
+        # 原书没给全的柱写作「？」，不能当盘（题61 第一个盘就是）
+        if not all(c in GAN for c in gan) or not all(c in ZHI for c in zhi):
             continue
         label = ''
         if len(ms) > 1:
@@ -114,22 +120,36 @@ def parse_chart(b):
     gan, zhi = clean(m.group(2)), clean(m.group(3))
     if len(gan) != 4 or len(zhi) != 4:
         return None, b
+    if not all(c in GAN for c in gan) or not all(c in ZHI for c in zhi):
+        return None, b
     return ({'g': m.group(1), 'gan': gan, 'zhi': zhi},
             b[:m.start()] + b[m.end():])
 
 
 def build_quiz():
     raw = read(os.path.join(SRC, '实用八字教材', '99-命例题库.md'))
-    # 题库正文之前是「按考点检索」「建议做题顺序」等导语，单独留作说明
-    first = raw.find('### 【题')
+    # ⚠️ 必须要求题号是【数字】。文件末尾「扩充方法」的模板代码块里有一行
+    #    `### 【题N】一句话结论`，分块正则不认识代码块边界，会照样在那儿切一刀：
+    #    代码块被劈开、前半段成了未闭合的空块，后半段因「题N」非数字被整段丢弃。
+    first = re.search(r'### 【题\d', raw).start()
     intro = raw[:first]
-    blocks = re.split(r'\n(?=### 【题)', raw[first:])
+
+    # ⚠️ 题目之间夹着「## 三·B 实战技巧完整版」这类分组标题，题目之后还有
+    #    「## 四、按考点检索」「## 五、覆盖情况与继续扩充」。它们都会被 split
+    #    并进前一道题——尾部那些尤其糟，扩充模板里的 <details> 与 ``` 示例会把
+    #    题92 的解析搅乱（曾产出一个空代码块，且把整章塞进题面）。
+    #    题目一律是 ### 三级标题，所以每块里遇到 ## 二级标题就不再属于这道题。
+    blocks = re.split(r'\n(?=### 【题\d)', raw[first:])
 
     items = []
     for b in blocks:
         m = re.match(r'### 【题(\d+)】(.*?)\n', b)
         if not m:
             continue
+        seg = re.split(r'\n(?=##\s)', b)
+        b = seg[0]                                   # 只保留题目本体
+        if len(seg) > 1:
+            intro += '\n\n' + '\n'.join(seg[1:])     # 分组标题/尾部章节收进说明
         num = int(m.group(1))
         head = m.group(2)
         tags = re.findall(r'`([^`]+)`', head)
@@ -137,10 +157,12 @@ def build_quiz():
         stars = head.count('⭐')
         rest = b[m.end():]
 
-        charts = all_charts(rest)          # 全部盘，供吸顶条用
-        n_charts = len(charts)
-        chart, rest = parse_chart(rest)
+        # ⚠️ 题头吸顶盘只能取自【题面】。题61 的题面盘原书没给全（写作「？」），
+        #    而拆解里有个对照命B——若从整题采集，题头会挂出命B，跟题面讲的命A对不上。
         face, det, tail = split_details(rest)
+        charts = all_charts(face + tail)
+        n_charts = len(charts)
+        chart, face = parse_chart(face)
 
         jie_html = chai_html = ''
         summ = ''
@@ -281,9 +303,10 @@ def main():
         bad.append(f'教材应为16章，实得{len(course)}')
     if len(notes) != 14:
         bad.append(f'笔记应为14篇，实得{len(notes)}')
+    # 74 而非 75：题61 的题面盘原书没给全（两柱写作「？」），不算有完整盘。
     nc = sum(1 for i in quiz['items'] if i['nCharts'])
-    if nc != 75:
-        bad.append(f'有完整四柱的题应为75，实得{nc}')
+    if nc != 74:
+        bad.append(f'有完整四柱的题应为74，实得{nc}')
     if len(quiz['items']) != 92:
         bad.append(f'题库应为92题，实得{len(quiz["items"])}')
     # 有解＝有独立「解」层，或解写在题面的引用块里（题37/76/92 那种）

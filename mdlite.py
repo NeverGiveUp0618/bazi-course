@@ -112,6 +112,10 @@ def _four_pillar(head, body):
     gan, zhi = clean(body[0]), clean(body[1])
     if not all(gan) or not all(zhi):
         return None
+    # ⚠️ 原书没给全的柱写作「？」或「—」（如题61 第一个盘）。这种不能硬排成盘，
+    #    退回普通表格，让读者一眼看出这里原书就是缺的。
+    if not all(c in _GAN for c in gan) or not all(c in _ZHI for c in zhi):
+        return None
     label = body[0][0].replace('**', '').strip('（）() ') or ''
     return render_chart(gan, zhi, label)
 
@@ -131,9 +135,13 @@ _ZHI = '子丑寅卯辰巳午未申酉戌亥'
 # 简写盘：四干／四支，加粗的是日主，斜杠可能全角或半角。
 # ⚠️ 括号必须是可选的——全站 190 处里只有 85 处带括号，另外 105 处是
 #    「**命例·库冲成巨富**：乙己**己**庚／巳丑未午」这种裸串（教材第8章尤其多）。
+# ⚠️ `**` 必须成对包住单字（标日主用），不能写成 `\*{0,2}字\*{0,2}`——那样
+#    「**【巨富那例】乙己己庚／巳丑未午**（己土日主）」里粗体的闭合标记会被
+#    末字吃进盘中，剩下的 ** 就落单了。
+_G1 = r'(?:\*\*[' + _GAN + r']\*\*|[' + _GAN + r'])'
+_Z1 = r'(?:\*\*[' + _ZHI + r']\*\*|[' + _ZHI + r'])'
 _GZ_RUN = re.compile(
-    r'[（(]?\s*((?:\*{0,2}[' + _GAN + r']\*{0,2}\s*){4})\s*[／/]\s*'
-    r'((?:\*{0,2}[' + _ZHI + r']\*{0,2}\s*){4})\s*[）)]?')
+    r'[（(]?\s*((?:' + _G1 + r'\s*){4})\s*[／/]\s*((?:' + _Z1 + r'\s*){4})\s*[）)]?')
 _INLINE_CHART = _GZ_RUN
 
 
@@ -166,20 +174,34 @@ def _lift_inline_chart(para):
     """
     out = []
     last = 0
+    in_bold = False   # 盘常写在粗体中间（**命A（乙壬甲甲／未午子戌）—— 29岁亡**），
+                      # 拆段会让 ** 落单，得把断开的粗体在两侧各自补齐
     for m in _INLINE_CHART.finditer(para):
         pick = lambda s: [c for c in s if c not in '*' and not c.isspace()]
         gan, zhi = pick(m.group(1)), pick(m.group(2))
         if len(gan) != 4 or len(zhi) != 4:
             continue
         head = para[last:m.start()].rstrip('：: 　')
-        if head.strip():
+        if in_bold:
+            # 上一段把粗体补闭合了，这一段若原本就带着闭合标记，去掉免得凑成 ****
+            head = head[2:] if head.startswith('**') else '**' + head
+        if head.count('**') % 2:
+            head += '**'
+            in_bold = True
+        else:
+            in_bold = False
+        if head.strip().strip('*'):
             out.append(('p', head))
         out.append(('chart', render_chart(gan, zhi)))
         last = m.end()
     if not out:
         return None
     tail = para[last:].lstrip('。，、 　')
-    if tail.strip():
+    if in_bold:
+        # 同上：「**【巨富那例】乙己己庚／巳丑未午**（己土日主）」这种，
+        # 粗体的闭合标记就紧跟在盘后面，head 已补过，这里要吃掉它。
+        tail = tail[2:] if tail.startswith('**') else '**' + tail
+    if tail.strip().strip('*'):
         out.append(('p', tail))
     return out
 
