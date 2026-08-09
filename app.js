@@ -692,29 +692,64 @@ function doSearch() {
   var box = $('#hits');
   if (kw.length < 1) { box.innerHTML = '<div class="empty">输入关键词开始搜索</div>'; return; }
   box.innerHTML = '<div class="empty">搜索中…</div>';
+  // 空格分词：「墓库 冲开」＝两个词都要出现的地方。
+  // 以前整串 indexOf，这么搜恒定 0 条。
+  var terms = kw.split(/\s+/).filter(Boolean);
+  var main = terms[0];
+  var rest = terms.slice(1);
+
   Promise.all([needCourse(), needNotes(), needQuiz()]).then(function (r) {
     var hits = [], total = 0, capped = false;
 
     // 一篇文档里的每一处命中都列出来（上限 PER_DOC），并记下是第几处，
     // 点进去就能直接滚到那一处——以前只给第一处、还回到文档顶部。
     function scan(text, label, scr, id) {
-      var at = -1, occ = 0, listed = 0, more = 0;
-      while ((at = text.indexOf(kw, at + 1)) >= 0) {
+      // 多词：所有词都得在这篇里，缺一个就跳过
+      for (var t = 0; t < rest.length; t++) if (text.indexOf(rest[t]) < 0) return;
+
+      // 先收齐 main 的全部出现位置
+      var spots = [], at = -1, occ = 0;
+      while ((at = text.indexOf(main, at + 1)) >= 0) { spots.push({ at: at, occ: occ }); occ++; }
+      total += spots.length;
+
+      // 多词时优先列「其他词也在附近」的那几处，否则片段里只看得见第一个词，
+      // 看不出两者的关联。occ 保持原序号不变，定位才不会错位。
+      if (rest.length) {
+        spots.forEach(function (s) {
+          s.near = rest.reduce(function (acc, w) {
+            var d = Infinity, p = -1;
+            while ((p = text.indexOf(w, p + 1)) >= 0) d = Math.min(d, Math.abs(p - s.at));
+            return acc + d;
+          }, 0);
+        });
+        spots.sort(function (a, b) { return a.near - b.near; });
+      }
+
+      var listed = 0, more = 0;
+      spots.forEach(function (sp) {
         if (listed < PER_DOC && hits.length < MAX_HITS) {
-          var s = Math.max(0, at - 28);
+          var s = Math.max(0, sp.at - 28);
+          var tail = text.slice(sp.at + main.length, sp.at + main.length + 56);
           hits.push({
-            label: label + (occ ? ' · 第' + (occ + 1) + '处' : ''),
-            scr: scr, id: id, occ: occ,
-            snip: (s > 0 ? '…' : '') + esc(text.slice(s, at)) +
-                  '<em>' + esc(kw) + '</em>' +
-                  esc(text.slice(at + kw.length, at + kw.length + 56)) + '…'
+            label: label + (sp.occ ? ' · 第' + (sp.occ + 1) + '处' : ''),
+            scr: scr, id: id, occ: sp.occ,
+            snip: (s > 0 ? '…' : '') + esc(text.slice(s, sp.at)) +
+                  '<em>' + esc(main) + '</em>' + hi(tail) + '…'
           });
           listed++;
         } else more++;
-        occ++; total++;
-      }
-      if (more > 0) hits[hits.length - 1].more = more;
+      });
+      if (more > 0 && hits.length) hits[hits.length - 1].more = more;
       if (hits.length >= MAX_HITS) capped = true;
+    }
+
+    // 片段里把其余关键词也点出来
+    function hi(s) {
+      var out = esc(s);
+      rest.forEach(function (w) {
+        out = out.split(esc(w)).join('<em>' + esc(w) + '</em>');
+      });
+      return out;
     }
 
     r[0].forEach(function (c) { scan(c.text, '第' + c.n + '章 · ' + c.title, 'chapter', c.n); });
@@ -724,9 +759,16 @@ function doSearch() {
       scan(qt[i], '题' + q.n + ' · ' + q.title, 'quiz', q.n);
     });
 
-    if (!hits.length) { box.innerHTML = '<div class="empty">没找到「' + esc(kw) + '」</div>'; return; }
+    if (!hits.length) {
+      box.innerHTML = '<div class="empty">没找到' +
+        (rest.length ? '同时含「' + terms.map(esc).join('」「') + '」的地方'
+                     : '「' + esc(kw) + '」') + '</div>';
+      return;
+    }
     box.innerHTML =
-      '<div class="muted" style="margin-bottom:8px">共 ' + total + ' 处' +
+      '<div class="muted" style="margin-bottom:8px">' +
+        (rest.length ? '同时含「' + terms.map(esc).join('」「') + '」：' : '') +
+        '共 ' + total + ' 处' +
         (hits.length < total ? '，列出 ' + hits.length + ' 条' : '') +
         (capped ? '（已达上限，缩小关键词看更全）' : '') + '</div>' +
       hits.map(function (h, i) {
@@ -738,7 +780,8 @@ function doSearch() {
     $$('[data-h]', box).forEach(function (el) {
       el.onclick = function () {
         var h = hits[+el.dataset.h];
-        show(h.scr, h.id, { kw: kw, occ: h.occ });
+        // 定位用第一个词——整串（含空格）在正文里不存在，传过去必然找不到
+        show(h.scr, h.id, { kw: main, occ: h.occ });
       };
     });
   });

@@ -6,7 +6,11 @@
   "scripts": {
     "build": "python3 build.py",
     "test": "node smoke.js",
-    "all": "python3 build.py && node smoke.js"
+    "audit": "python3 audit.py",
+    "audit:self": "python3 audit.py --selftest",
+    "all": "python3 build.py && node smoke.js && python3 audit.py"
   },
-  "devDependencies": { "jsdom": "^24.1.3" }
+  "devDependencies": {
+    "jsdom": "^24.1.3"
+  }
 }

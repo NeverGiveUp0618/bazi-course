@@ -295,6 +295,31 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     window.localStorage.removeItem('bazi_course_read');
   }
 
+  console.log('\n— 多词搜索（空格分隔）—');
+  {
+    const one = await search('墓库');
+    ok(one.length > 0, '单词「墓库」' + one.length + ' 条（行为不变）');
+
+    const two = await search('墓库 冲开');
+    ok(two.length > 0, '「墓库 冲开」搜到 ' + two.length + ' 条（以前恒为 0）');
+    ok(/同时含/.test($('#hits').innerHTML), '结果头部说明是「同时含…」');
+    // 每条命中所在的文档必须两个词都有
+    const html = $('#hits').innerHTML;
+    ok((html.match(/<em>/g) || []).length > two.length,
+       '片段里两个词都被点出来（<em> 数多于结果条数）');
+
+    // 跳转要用第一个词定位——整串含空格，在正文里根本不存在
+    two[0].click(); await wait();
+    const scr = $('#s-chapter').classList.contains('active') ? '#chapterBody'
+              : $('#s-note').classList.contains('active') ? '#noteBody' : '#quizBody';
+    ok(D.querySelectorAll(scr + ' mark.sr-kw, ' + scr + ' .sr-blk').length > 0,
+       '多词搜索跳过去照样定位到「墓库」');
+
+    const none = await search('墓库 绝不可能出现的词');
+    ok(none.length === 0, '缺一个词就不该命中');
+    ok(/没找到同时含/.test($('#hits').innerHTML), '无结果时说明是多词条件');
+  }
+
   console.log('\n— 内容会一直加：分母不能写死 —');
   {
     const c = JSON.parse(window.localStorage.getItem('bazi_course_counts') || '{}');
