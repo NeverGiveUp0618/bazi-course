@@ -269,7 +269,7 @@ def main():
     outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
 
     meta = {
-        'name': '八字精讲',
+        'name': '命理精讲',
         'built': __import__('time').strftime('%Y-%m-%d %H:%M'),
         'counts': {
             'course': len(course),

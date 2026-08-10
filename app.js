@@ -1,4 +1,4 @@
-/* 八字精讲 — app.js
+/* 命理精讲 — app.js
  *
  * 内容全部由 build.py 从 Obsidian markdown 编译而来（data/*.js）。
  * 改内容请改 markdown 后重跑 build.py，不要动 data/*.js。
@@ -69,7 +69,7 @@ var pos = 0;      // 当前所在下标
 var cur = { scr: 'home', id: null };
 
 var TITLES = {
-  home: '八字精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
+  home: '命理精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
   note: '', index: '问题清单', outline: '学习路线', qlist: '命例题库',
   quiz: '', search: '搜索', mynotes: '我的笔记'
 };
@@ -82,7 +82,7 @@ function _apply(scr, id) {
   if (el) el.classList.add('active');
 
   $('#btnBack').classList.toggle('show', !ROOTS[scr]);
-  $('#ttl').textContent = TITLES[scr] || '八字精讲';
+  $('#ttl').textContent = TITLES[scr] || '命理精讲';
   $$('.tabbar button').forEach(function (b) {
     b.classList.toggle('on', b.dataset.tab === scr);
   });
