@@ -293,8 +293,17 @@ def md2html(text, heading_offset=0, collect_headings=None):
             t = ['<div class="tw"><table>', '<thead><tr>']
             t += [f'<th>{_inline(c)}</th>' for c in head]
             t.append('</tr></thead><tbody>')
+            # ⚠️ 短标签单元格(序号/干支/是否)要禁止换行——否则窄屏下
+            #    「（一）」会被拆成两行，第8章「制局十类」整张表都这样。
+            #    只标短的：长文本仍要正常换行，否则会把表格撑到没法读。
+            #    表格外层有 .tw(overflow-x:auto)，撑宽了是横向滚动，不挤压。
             for r in body:
-                t.append('<tr>' + ''.join(f'<td>{_inline(c)}</td>' for c in r) + '</tr>')
+                cells = []
+                for c in r:
+                    plain = re.sub(r'<[^>]+>', '', _inline(c))
+                    cls = ' class="nw"' if len(plain.strip()) <= 6 else ''
+                    cells.append(f'<td{cls}>{_inline(c)}</td>')
+                t.append('<tr>' + ''.join(cells) + '</tr>')
             t.append('</tbody></table></div>')
             out.append(''.join(t))
             continue

@@ -17,6 +17,7 @@
 <header class="topbar">
   <button class="back" id="btnBack" aria-label="返回">‹ 返回</button>
   <h1 id="ttl">八字精讲</h1>
+  <button class="act" id="btnMyNotes" aria-label="我的笔记">📌</button>
   <button class="act" id="btnSearch" aria-label="搜索">🔍</button>
   <button class="act" id="btnTheme" aria-label="切换主题">◐</button>
 </header>
@@ -47,6 +48,14 @@
       <div class="row spread"><b style="font-size:15px">学习进度</b><span class="muted" id="progPct">—</span></div>
       <div class="bar"><i id="progBar" style="width:0"></i></div>
       <div class="row wrap" style="margin-top:12px;gap:8px" id="progChips"></div>
+    </div>
+
+    <div class="card tap" data-go="mynotes">
+      <div class="row spread">
+        <div><b style="font-size:15px">我的笔记</b>
+          <div class="muted" style="margin-top:2px" id="myNoteHint">选中正文任意一句，即可存进来</div></div>
+        <span style="color:var(--ink3)">›</span>
+      </div>
     </div>
 
     <div class="card tap" data-go="index">
@@ -107,6 +116,12 @@
     <div id="quizBody"></div>
   </section>
 
+  <!-- 我的笔记 -->
+  <section class="screen" id="s-mynotes">
+    <div class="row wrap" style="gap:6px;margin-bottom:10px" id="mnFilters"></div>
+    <div id="mnList"></div>
+  </section>
+
   <!-- 搜索 -->
   <section class="screen" id="s-search">
     <div class="searchbar">
@@ -127,6 +142,9 @@
 <button class="fab" id="fabToc" style="display:none" aria-label="目录">☰</button>
 
 <div class="sheet" id="sheet"><div class="inner" id="sheetInner"></div></div>
+
+<!-- 选中正文后浮出的「存进笔记」按钮 -->
+<button class="selbtn" id="selBtn">📌 存进笔记</button>
 
 <!-- 恢复阅读位置／搜索定位后的一行提示，几秒后自动消失 -->
 <div class="toast" id="toast"><span id="toastTxt"></span><button id="toastAct"></button></div>

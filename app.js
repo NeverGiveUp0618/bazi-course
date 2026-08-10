@@ -29,6 +29,9 @@ var K = {
   // 内容总量，写给五术堂导航看板当分母用——内容会一直加，
   // 看板那边不该再把 16/14/92 写死在字符串里
   counts: 'bazi_course_counts',
+  // 我的笔记：用户自己划的句子。⚠️ 与内容里那 14 篇「笔记」是两回事，
+  // UI 上一律叫「我的笔记」，别混。
+  notes: 'bazi_course_mynotes',
   theme: 'bazi_course_theme'
 };
 function ls(k, d) {
@@ -68,7 +71,7 @@ var cur = { scr: 'home', id: null };
 var TITLES = {
   home: '八字精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
   note: '', index: '问题清单', outline: '学习路线', qlist: '命例题库',
-  quiz: '', search: '搜索'
+  quiz: '', search: '搜索', mynotes: '我的笔记'
 };
 var ROOTS = { home: 1, course: 1, notes: 1, qlist: 1 };
 
@@ -86,6 +89,7 @@ function _apply(scr, id) {
   $('#fabToc').style.display = (scr === 'chapter' || scr === 'note') ? 'block' : 'none';
   if (scr !== 'quiz') $('#stickyChart').classList.add('hide');
   hideToast();
+  var sb = $('#selBtn'); if (sb) sb.classList.remove('on');
 
   RENDER[scr] && RENDER[scr](id);
   if (scr !== 'search') save(K.last, { scr: scr, id: id });
@@ -290,6 +294,10 @@ RENDER.home = function () {
     '<span class="pill g">教材 ' + chDone + '/' + (c.course || 16) + '</span>' +
     '<span class="pill g">笔记 ' + ntDone + '/' + (c.notes || 14) + '</span>' +
     '<span class="pill g">命例 ' + qDone + '/' + (c.quiz || 92) + '</span>';
+
+  var mn = myNotes().length;
+  var hint = $('#myNoteHint');
+  if (hint) hint.textContent = mn ? ('已存 ' + mn + ' 条') : '选中正文任意一句，即可存进来';
 
   var last = ls(K.last, null);
   var box = $('#resume');
@@ -664,6 +672,153 @@ function navBar(it) {
   });
 }
 
+/* ==================== 我的笔记 ====================
+ * 选中正文任意一句 → 浮出「存进笔记」→ 存下原文＋出处＋在文中的第几处。
+ * ⚠️ 与内容里那 14 篇「笔记」是两回事，UI 一律称「我的笔记」。
+ *
+ * 跳回原文直接复用搜索定位那套（pendingFind + findInDoc）：
+ * 存 occ（该句在本文档中第几次出现），点笔记就能滚回原句并高亮。
+ */
+function myNotes() { return ls(K.notes, []); }
+function saveMyNotes(v) { save(K.notes, v); }
+
+/* 当前屏对应的正文容器与出处信息 */
+function noteCtx() {
+  if (cur.scr === 'chapter') return { root: $('#chapterBody'), from: '第' + cur.id + '章' };
+  if (cur.scr === 'note')    return { root: $('#noteBody'),    from: '笔记 ' + cur.id };
+  if (cur.scr === 'quiz')    return { root: $('#quizBody'),    from: '题 ' + cur.id };
+  if (cur.scr === 'index')   return { root: $('#indexBody'),   from: '问题清单' };
+  if (cur.scr === 'outline') return { root: $('#outlineBody'), from: '学习路线' };
+  return null;
+}
+
+/* 选中文本在该文档纯文本里是第几次出现——跳回时用它精确定位 */
+function occOf(root, text) {
+  var all = root.textContent || '';
+  var sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return 0;
+  var r = sel.getRangeAt(0).cloneRange();
+  try {
+    r.setStart(root, 0);
+    var before = r.toString();
+    return before.split(text).length - 1;
+  } catch (e) { return 0; }
+}
+
+var selTimer = null;
+function onSelChange() {
+  clearTimeout(selTimer);
+  selTimer = setTimeout(function () {
+    var btn = $('#selBtn');
+    if (!btn) return;
+    var sel = window.getSelection();
+    var text = sel ? String(sel).trim() : '';
+    var ctx = noteCtx();
+    // 选太短没意义、太长存不下重点；必须落在正文容器内
+    if (!ctx || text.length < 4 || text.length > 400 ||
+        !sel.rangeCount || !ctx.root.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+      btn.classList.remove('on');
+      return;
+    }
+    var rect;
+    try { rect = sel.getRangeAt(0).getBoundingClientRect(); } catch (e) { return; }
+    if (!rect || !rect.width) { btn.classList.remove('on'); return; }
+    var top = rect.top - 46;
+    if (top < 56) top = rect.bottom + 8;          // 顶部放不下就挪到选区下方
+    btn.style.top = top + 'px';
+    btn.style.left = Math.max(10, Math.min(rect.left, window.innerWidth - 130)) + 'px';
+    btn.classList.add('on');
+    btn._pending = { text: text, ctx: ctx, occ: occOf(ctx.root, text) };
+  }, 120);
+}
+
+function addMyNote() {
+  var btn = $('#selBtn');
+  var p = btn && btn._pending;
+  if (!p) return;
+  var list = myNotes();
+  // 同一处重复划不重复存
+  if (list.some(function (x) { return x.text === p.text && x.scr === cur.scr && x.id === cur.id; })) {
+    toast('这句已经在笔记里了');
+  } else {
+    list.unshift({
+      t: Date.now(), text: p.text, from: p.ctx.from,
+      scr: cur.scr, id: cur.id, occ: p.occ, memo: ''
+    });
+    saveMyNotes(list);
+    toast('已存进笔记（共 ' + list.length + ' 条）', '去看看', function () { show('mynotes', null); });
+  }
+  btn.classList.remove('on');
+  var sel = window.getSelection();
+  if (sel && sel.removeAllRanges) sel.removeAllRanges();
+}
+
+var mnFilter = 'all';
+RENDER.mynotes = function () {
+  var list = myNotes();
+  var box = $('#mnList');
+  var kinds = [['all', '全部 ' + list.length]];
+  var byFrom = {};
+  list.forEach(function (n) { byFrom[n.scr] = (byFrom[n.scr] || 0) + 1; });
+  [['chapter', '教材'], ['note', '笔记'], ['quiz', '命例']].forEach(function (k) {
+    if (byFrom[k[0]]) kinds.push([k[0], k[1] + ' ' + byFrom[k[0]]]);
+  });
+  $('#mnFilters').innerHTML = list.length ? kinds.map(function (k) {
+    return '<span class="pill' + (mnFilter === k[0] ? ' sel' : ' g') + '" data-mn="' + k[0] + '">' + k[1] + '</span>';
+  }).join('') : '';
+  $$('[data-mn]').forEach(function (el) {
+    el.onclick = function () { mnFilter = el.dataset.mn; RENDER.mynotes(); };
+  });
+
+  var show_ = list.filter(function (n) { return mnFilter === 'all' || n.scr === mnFilter; });
+  if (!show_.length) {
+    box.innerHTML = '<div class="empty">' + (list.length
+      ? '这个来源下还没有笔记'
+      : '还没有笔记。<br><br>读教材、笔记或命例时，<b>用手指长按选中一句话</b>，<br>会浮出「📌 存进笔记」。') + '</div>';
+    return;
+  }
+  box.innerHTML = show_.map(function (n, i) {
+    var idx = list.indexOf(n);
+    return '<div class="mncard">' +
+      '<div class="mnfrom">' + esc(n.from) + '<span>' + fmtDay(n.t) + '</span></div>' +
+      '<div class="mntext" data-mn-go="' + idx + '">' + esc(n.text) + '</div>' +
+      (n.memo ? '<div class="mnmemo" data-mn-memo="' + idx + '">' + esc(n.memo) + '</div>' : '') +
+      '<div class="mnact">' +
+        '<button data-mn-go="' + idx + '">跳到原文 ›</button>' +
+        '<button data-mn-memo="' + idx + '">' + (n.memo ? '改批注' : '加批注') + '</button>' +
+        '<button data-mn-del="' + idx + '" class="del">删除</button>' +
+      '</div></div>';
+  }).join('');
+  $$('[data-mn-go]', box).forEach(function (el) {
+    el.onclick = function () {
+      var n = list[+el.dataset.mnGo];
+      if (!n) return;
+      show(n.scr, n.id, { kw: n.text.slice(0, 30), occ: n.occ || 0 });
+    };
+  });
+  $$('[data-mn-memo]', box).forEach(function (el) {
+    el.onclick = function () {
+      var i = +el.dataset.mnMemo, n = list[i];
+      var v = prompt('给这句话加一条自己的批注：', n.memo || '');
+      if (v === null) return;
+      n.memo = v.trim(); saveMyNotes(list); RENDER.mynotes();
+    };
+  });
+  $$('[data-mn-del]', box).forEach(function (el) {
+    el.onclick = function () {
+      var i = +el.dataset.mnDel;
+      if (!confirm('删掉这条笔记？')) return;
+      list.splice(i, 1); saveMyNotes(list); RENDER.mynotes();
+    };
+  });
+};
+
+function fmtDay(t) {
+  var d = new Date(t), n = new Date();
+  var same = d.toDateString() === n.toDateString();
+  return same ? '今天' : (d.getMonth() + 1) + '-' + d.getDate();
+}
+
 /* ---------- 搜索 ---------- */
 RENDER.search = function () { setTimeout(function () { $('#q').focus(); }, 80); };
 
@@ -809,6 +964,11 @@ $('#sheet').onclick = function (e) { if (e.target === $('#sheet')) $('#sheet').c
 /* ---------- 交互绑定 ---------- */
 $('#btnBack').onclick = function () { history.back(); };
 $('#btnSearch').onclick = function () { show('search', null); };
+$('#btnMyNotes').onclick = function () { show('mynotes', null); };
+$('#selBtn').onclick = addMyNote;
+document.addEventListener('selectionchange', onSelChange);
+// 点别处就收起浮标
+document.addEventListener('scroll', function () { $('#selBtn').classList.remove('on'); }, true);
 $$('.tabbar button').forEach(function (b) {
   b.onclick = function () {
     var t = b.dataset.tab;

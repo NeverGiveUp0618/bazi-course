@@ -342,6 +342,80 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(/got\[k\] < base/.test(bp), 'build.py 改成「跌破基线才报错」');
   }
 
+  console.log('\n— 我的笔记 —');
+  {
+    window.localStorage.removeItem('bazi_course_mynotes');
+    // 进第 8 章，选中正文里的一句
+    D.querySelector('[data-tab="course"]').click(); await wait();
+    D.querySelectorAll('#courseList [data-ch]')[7].click(); await wait();
+
+    const body = $('#chapterBody');
+    // 找一个够长的文本节点当作"用户选中的一句"
+    const walker = D.createTreeWalker(body, 4, null);
+    let node = null;
+    while ((node = walker.nextNode())) if (node.nodeValue.trim().length > 12) break;
+    const picked = node.nodeValue.trim().slice(0, 20);
+
+    const range = D.createRange();
+    range.setStart(node, node.nodeValue.indexOf(picked));
+    range.setEnd(node, node.nodeValue.indexOf(picked) + picked.length);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+    // jsdom 没有布局，getBoundingClientRect 恒为 0 → 浮标逻辑会短路，
+    // 这里补一个几何，否则测的是 fallback 分支（这站栽过一次的坑）
+    range.getBoundingClientRect = () => ({ top: 300, bottom: 320, left: 40, width: 120, height: 20 });
+    const origGet = D.createRange;
+    D.dispatchEvent(new window.Event('selectionchange'));
+    await new Promise(r => setTimeout(r, 200));
+
+    ok($('#selBtn').classList.contains('on'), '选中正文后浮出「存进笔记」');
+    $('#selBtn').click(); await wait();
+    const saved = JSON.parse(window.localStorage.getItem('bazi_course_mynotes') || '[]');
+    ok(saved.length === 1, '存下 1 条笔记，实为 ' + saved.length);
+    ok(saved[0].text === picked, '存的是选中的原句');
+    ok(saved[0].scr === 'chapter' && saved[0].id === 8, '记下出处：' + saved[0].from);
+    ok(typeof saved[0].occ === 'number', '记下在文中第几处（跳回定位用）');
+
+    $('#btnMyNotes').click(); await wait();
+    ok($('#s-mynotes').classList.contains('active'), '顶栏 📌 进我的笔记');
+    ok(D.querySelectorAll('#mnList .mncard').length === 1, '列表显示 1 条');
+
+    console.log('\n  — 跳回原文（复用搜索定位那套）—');
+    D.querySelector('[data-mn-go]').click(); await wait();
+    ok($('#s-chapter').classList.contains('active'), '跳回第 8 章');
+    ok(D.querySelectorAll('#chapterBody mark.sr-kw, #chapterBody .sr-blk').length > 0,
+       '原句被高亮（不是只回到章首）');
+
+    console.log('\n  — 批注与删除 —');
+    $('#btnMyNotes').click(); await wait();
+    window.prompt = () => '这句是本章的题眼';
+    D.querySelector('[data-mn-memo]').click(); await wait();
+    ok(JSON.parse(window.localStorage.getItem('bazi_course_mynotes'))[0].memo === '这句是本章的题眼', '批注已存');
+    ok(/这句是本章的题眼/.test($('#mnList').innerHTML), '批注显示在卡片上');
+    window.confirm = () => true;
+    D.querySelector('[data-mn-del]').click(); await wait();
+    ok(JSON.parse(window.localStorage.getItem('bazi_course_mynotes')).length === 0, '删除生效');
+    ok(/还没有笔记/.test($('#mnList').innerHTML), '空态给出用法说明');
+
+    console.log('\n  — 边界 —');
+    ok(!$('#selBtn').classList.contains('on'), '切屏后浮标收起');
+    window.localStorage.removeItem('bazi_course_mynotes');
+  }
+
+  console.log('\n— 表格排版 —');
+  {
+    D.querySelector('[data-tab="course"]').click(); await wait();
+    D.querySelectorAll('#courseList [data-ch]')[7].click(); await wait();
+    const h = $('#chapterBody').innerHTML;
+    ok(/<div class="tw">/.test(h), '表格外包了横向滚动容器');
+    const nw = (h.match(/<td class="nw">/g) || []).length;
+    ok(nw > 0, `短标签单元格标了 .nw 防断行，本章 ${nw} 个`);
+    // 长文本单元格不该被 nowrap，否则表格会撑到没法读
+    const longNw = [...$('#chapterBody').querySelectorAll('td.nw')]
+      .filter(td => td.textContent.trim().length > 6);
+    ok(longNw.length === 0, '长文本单元格没有被误标 nowrap');
+  }
+
   console.log('\n— 主题 —');
   $('#btnTheme').click();
   ok(D.documentElement.getAttribute('data-theme') === 'dark', '切到深色');
