@@ -92,12 +92,28 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
   border-top:1px solid var(--line);
 }
+/* ⭐ 2026-08-11 底栏去图标：原来是 emoji（⌂📖🔎✍️）+ 小字两行，
+   改成一行宋体词，靠字距和一道靛青短线区分，不再有任何图形。
+   ⚠️ letter-spacing 会在末字后面也留一份空，纯居中会整体偏左；
+      用 padding-left 把这一份补回来，否则四个词看着都没对齐。 */
 .tabbar button{
-  border:0;background:none;color:var(--ink3);font-size:11px;cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px
+  position:relative;border:0;background:none;cursor:pointer;
+  display:grid;place-items:center;padding-left:.24em;
+  font-family:"Songti SC","STSong","Noto Serif SC",serif;
+  font-size:15px;letter-spacing:.24em;color:var(--ink3);
+  transition:color .18s
 }
-.tabbar button .ic{font-size:19px;line-height:1}
-.tabbar button.on{color:var(--indigo);font-weight:600}
+/* 格与格之间一道极细竖线，不到顶不到底 */
+.tabbar button + button::before{
+  content:"";position:absolute;left:0;top:50%;transform:translateY(-50%);
+  width:1px;height:15px;background:var(--line)
+}
+.tabbar button.on{color:var(--indigo)}
+/* 选中标记：顶边一道短线，像书页里夹的丝带 */
+.tabbar button.on::after{
+  content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+  width:24px;height:2px;background:var(--indigo)
+}
 
 /* ---------- 通用件 ---------- */
 .card{
@@ -143,8 +159,17 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
   transition:transform .12s
 }
 .mode:active{transform:scale(.97)}
-.mode .ic{font-size:24px;display:block;margin-bottom:6px}
-.mode b{font-size:15px;display:block}
+/* 首页三入口同样去掉 emoji：学／查／练三个字自己当标识，下面压一道细线。 */
+.mode b{
+  position:relative;display:block;
+  font-family:"Songti SC","STSong","Noto Serif SC",serif;
+  font-size:27px;font-weight:500;letter-spacing:.08em;color:var(--indigo);
+  padding-bottom:10px;margin-bottom:9px
+}
+.mode b::after{
+  content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+  width:18px;height:1px;background:var(--line)
+}
 .mode span{font-size:11px;color:var(--ink3)}
 
 .bar{height:5px;background:var(--bg2);border-radius:3px;overflow:hidden;margin-top:8px}

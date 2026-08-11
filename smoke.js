@@ -416,6 +416,25 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(longNw.length === 0, '长文本单元格没有被误标 nowrap');
   }
 
+  console.log('\n— 底栏与首页入口：纯文字 —');
+  // ⚠️ 用码点判断，别拿正则数 emoji：✍️ 是「字符+变体选择符」两个码点，
+  //    \u4e00-\u9fff 这类范围也框不住 ⌂ 这种符号区的字。
+  var isPlain = function (txt) {
+    return Array.from(txt).every(function (ch) {
+      var c = ch.codePointAt(0);
+      return c < 0x2000 || (c >= 0x3000 && c <= 0x9fff);  // ASCII/标点 + CJK
+    });
+  };
+  var tabs = Array.from(D.querySelectorAll('.tabbar button'));
+  ok(tabs.length === 4, '底栏 4 个 tab');
+  ok(tabs.every(function (b) { return isPlain(b.textContent.trim()); }),
+     '底栏没有图标，只有文字：' + tabs.map(function (b) { return b.textContent.trim(); }).join(' '));
+  ok(D.querySelectorAll('.tabbar .ic').length === 0, '底栏 .ic 图标位已删干净');
+  var modes = Array.from(D.querySelectorAll('.mode'));
+  ok(modes.length === 3 && modes.every(function (m) { return isPlain(m.textContent); }),
+     '首页三入口也去了 emoji');
+  ok(D.querySelectorAll('.mode .ic').length === 0, '首页入口 .ic 图标位已删干净');
+
   console.log('\n— 主题 —');
   $('#btnTheme').click();
   ok(D.documentElement.getAttribute('data-theme') === 'dark', '切到深色');
