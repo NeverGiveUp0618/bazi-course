@@ -17,9 +17,11 @@
 <header class="topbar">
   <button class="back" id="btnBack" aria-label="返回">‹ 返回</button>
   <h1 id="ttl">命理精讲</h1>
-  <button class="act" id="btnMyNotes" aria-label="我的笔记">📌</button>
-  <button class="act" id="btnSearch" aria-label="搜索">🔍</button>
-  <button class="act" id="btnTheme" aria-label="切换主题">◐</button>
+  <!-- 顶栏三个入口也是纯字：笔＝我的笔记，索＝搜索，
+       第三个是主题，随/阴/阳 三态由 applyTheme() 写文字，别在这写死。 -->
+  <button class="act" id="btnMyNotes" aria-label="我的笔记">笔</button>
+  <button class="act" id="btnSearch" aria-label="搜索">索</button>
+  <button class="act" id="btnTheme" aria-label="配色：跟随系统">随</button>
 </header>
 
 <main>

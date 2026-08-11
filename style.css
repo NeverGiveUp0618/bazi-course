@@ -77,7 +77,15 @@ body{
   flex:1 1 auto; margin:0; font-size:16px; font-weight:600; letter-spacing:.3px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
 }
-.topbar .act{border:0;background:none;color:var(--ink2);font-size:18px;padding:6px 8px;cursor:pointer}
+/* ⭐ 2026-08-11 顶栏去 emoji（原 📌🔍◐）：三个宋体单字。
+   ⚠️ 主题那颗在「非跟随系统」时转靛青——这是真状态（你手动改过了），
+      不是装饰；别给另外两颗也加颜色，一排都亮就看不出哪个有状态了。 */
+.topbar .act{
+  border:0;background:none;color:var(--ink2);cursor:pointer;
+  font-family:"Songti SC","STSong","Noto Serif SC",serif;
+  font-size:16px;font-weight:500;padding:6px 7px;line-height:1
+}
+.topbar .act[data-set="1"]{color:var(--indigo)}
 
 main{padding:14px 14px calc(var(--tabh) + 26px)}
 .screen{display:none; animation:fade .18s ease}

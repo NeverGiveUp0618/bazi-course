@@ -989,9 +989,15 @@ $('#q').addEventListener('input', function () {
 });
 
 /* 主题 */
+var THEME_MARK = { dark: ['阴', '配色：深色'], light: ['阳', '配色：浅色'] };
 function applyTheme(t) {
   if (t) document.documentElement.setAttribute('data-theme', t);
   else document.documentElement.removeAttribute('data-theme');
+  // 按钮显示的是「当前是哪一态」，不是「点了会变成什么」
+  var m = THEME_MARK[t] || ['随', '配色：跟随系统'], b = $('#btnTheme');
+  b.textContent = m[0];
+  b.setAttribute('aria-label', m[1]);
+  b.setAttribute('data-set', t ? '1' : '0');
 }
 applyTheme(ls(K.theme, null));
 $('#btnTheme').onclick = function () {

@@ -416,7 +416,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(longNw.length === 0, '长文本单元格没有被误标 nowrap');
   }
 
-  console.log('\n— 底栏与首页入口：纯文字 —');
+  console.log('\n— 全站去图标：顶栏／底栏／首页入口都是纯文字 —');
   // ⚠️ 用码点判断，别拿正则数 emoji：✍️ 是「字符+变体选择符」两个码点，
   //    \u4e00-\u9fff 这类范围也框不住 ⌂ 这种符号区的字。
   var isPlain = function (txt) {
@@ -434,6 +434,17 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(modes.length === 3 && modes.every(function (m) { return isPlain(m.textContent); }),
      '首页三入口也去了 emoji');
   ok(D.querySelectorAll('.mode .ic').length === 0, '首页入口 .ic 图标位已删干净');
+  var acts = Array.from(D.querySelectorAll('.topbar .act'));
+  ok(acts.length === 3 && acts.every(function (b) { return isPlain(b.textContent.trim()); }),
+     '顶栏也去了 emoji：' + acts.map(function (b) { return b.textContent.trim(); }).join(' '));
+  // 主题键三态：随（跟随系统）→ 阴 → 阳 → 随，字要跟着换
+  var bt = D.querySelector('#btnTheme'), marks = [];
+  // ⚠️ 三态一圈只点 3 下：点 4 下会多转一格，把主题停在 dark，
+  //    下面「— 主题 —」那两项就跟着一起挂。
+  var readMark = function () { return bt.textContent.trim() + bt.getAttribute('data-set'); };
+  marks.push(readMark());
+  for (var ti = 0; ti < 3; ti++) { bt.click(); marks.push(readMark()); }
+  ok(marks.join(' ') === '随0 阴1 阳1 随0', '主题键三态字随状态换：' + marks.join(' → '));
 
   console.log('\n— 主题 —');
   $('#btnTheme').click();
