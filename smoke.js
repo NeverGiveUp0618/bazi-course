@@ -49,7 +49,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#s-home').classList.contains('active'), '首页激活');
   // ⚠️ 别再把题数写死（build.py 的 BASE 当初就栽在 != 上）：
   //    内容一直在加，这里验的是「三处口径一致 + 不跌破基线」。
-  const BASE = { course: 16, notes: 14, quiz: 122 };
+  const BASE = { course: 16, notes: 14, quiz: 163 };
   const QUIZ = Number($('#hQuiz').textContent);
   ok(QUIZ >= BASE.quiz, `统计显示 ${QUIZ} 道命例（基线 ${BASE.quiz}）`);
   ok(Number($('#hCourse').textContent) >= BASE.course, '统计显示 16 章');
