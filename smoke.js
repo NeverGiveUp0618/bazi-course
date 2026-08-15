@@ -47,9 +47,13 @@ const wait = () => new Promise(r => setTimeout(r, 30));
 (async () => {
   console.log('\n— 首页 —');
   ok($('#s-home').classList.contains('active'), '首页激活');
-  ok($('#hQuiz').textContent === '92', '统计显示 92 道命例，实为 ' + $('#hQuiz').textContent);
-  ok($('#hCourse').textContent === '16', '统计显示 16 章');
-  ok($('#hNotes').textContent === '14', '统计显示 14 篇');
+  // ⚠️ 别再把题数写死（build.py 的 BASE 当初就栽在 != 上）：
+  //    内容一直在加，这里验的是「三处口径一致 + 不跌破基线」。
+  const BASE = { course: 16, notes: 14, quiz: 102 };
+  const QUIZ = Number($('#hQuiz').textContent);
+  ok(QUIZ >= BASE.quiz, `统计显示 ${QUIZ} 道命例（基线 ${BASE.quiz}）`);
+  ok(Number($('#hCourse').textContent) >= BASE.course, '统计显示 16 章');
+  ok(Number($('#hNotes').textContent) >= BASE.notes, '统计显示 14 篇');
 
   console.log('\n— 教材 —');
   D.querySelector('[data-tab="course"]').click(); await wait();
@@ -93,7 +97,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   console.log('\n— 题库 —');
   D.querySelector('[data-tab="qlist"]').click(); await wait();
   const rows = D.querySelectorAll('#qRows [data-q]');
-  ok(rows.length === 92, '列出 92 题，实为 ' + rows.length);
+  ok(rows.length === QUIZ, `题库列出 ${rows.length} 题，与首页统计 ${QUIZ} 一致`);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
   const fm = Array.from(D.querySelectorAll('#qFilters [data-m]')).map(e => e.dataset.m);
   ok(fm.join(',') === 'all,new,star,chart', '筛选只剩 全部/没看过/精读/有完整盘：' + fm.join(','));
@@ -228,7 +232,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(!!rare, '低频考点「空亡」现在出现在筛选里');
     rare.click(); await wait();
     const n = D.querySelectorAll('#qRows [data-q]').length;
-    ok(n > 0 && n < 92, `按「空亡」筛出 ${n} 题`);
+    ok(n > 0 && n < QUIZ, `按「空亡」筛出 ${n} 题`);
     ok(D.querySelector('#qTags .pill.sel[data-t="空亡"]') !== null, '选中态可见（即便它排在折叠区之后）');
     $('#qTags [data-t=""]').click(); await wait();
   }
@@ -323,7 +327,9 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   console.log('\n— 内容会一直加：分母不能写死 —');
   {
     const c = JSON.parse(window.localStorage.getItem('bazi_course_counts') || '{}');
-    ok(c.course === 16 && c.notes === 14 && c.quiz === 92,
+    ok(c.course === Number($('#hCourse').textContent)
+       && c.notes === Number($('#hNotes').textContent)
+       && c.quiz === QUIZ,
        '启动时把真实总量写给导航看板：' + JSON.stringify(c));
 
     // 看板在另一个仓库(mingli-home)，这里直接把它那段口径搬过来跑一遍，
