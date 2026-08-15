@@ -306,7 +306,7 @@ def main():
     #   少了 → 报错退出（解析器吞内容了，这才是自检要防的）
     #   多了 → 只提示一句，顺手把基线抬上去，别拦着新内容进站。
     # ⚠️ 曾经写成 `!= 14`，加第15篇笔记会直接构建失败。
-    BASE = {'course': 16, 'notes': 14, 'quiz': 279, 'chart': 261, 'chai': 267}
+    BASE = {'course': 16, 'notes': 14, 'quiz': 299, 'chart': 281, 'chai': 287}
 
     nc = sum(1 for i in quiz['items'] if i['nCharts'])
     chai = sum(1 for i in quiz['items'] if i['chai'])
