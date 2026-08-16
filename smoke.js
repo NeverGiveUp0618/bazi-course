@@ -85,6 +85,28 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(D.querySelectorAll('#chapterBody .ichart').length >= 5,
        '第8章命例全排成盘，共 ' + D.querySelectorAll('#chapterBody .ichart').length + ' 个');
     ok(!/\[\[/.test(noPre), 'wiki 链接全部渲染，无残留 [[..]]');
+
+    /* ⚠️ 2026-08-16 回归锁：data-wiki 里的锚点必须是【纯文本】。
+       它跑在 _QUOTE/_BOLD/_INLINE_CODE 之后，一旦忘了还原，锚点里会混进
+       <q>/<strong>/<code> 或 \x00C0\x00 占位，运行时按标题文本定位就永远找不到
+       （曾有 381 条里 73 条因此失效，表现是"点了能跳到文章、但停在顶部"）。*/
+    /* ⚠️ 必须扫【全部产物】而不是当前页面：第一版只查了当前屏那 6 条 a.wiki，
+       而脏锚点都在别的文档里 —— 拿修复前的 mdlite 跑照样全绿，是假绿。*/
+    const allHtml = []
+      .concat((window.DATA_NOTES || []).map(x => x.html || ''))
+      .concat((window.DATA_COURSE || []).map(x => x.html || ''))
+      .concat([typeof window.DATA_INDEX === 'string' ? window.DATA_INDEX : ''])
+      .join('');
+    const wikis = [...allHtml.matchAll(/data-wiki="([^"]*)"/g)].map(m => m[1]);
+    ok(wikis.length > 100, '全站 wiki 链接共 ' + wikis.length + ' 条');
+    // 属性值里标记是转义过的，所以既查 &lt; 也查裸 <
+    const dirty = wikis.filter(w => /&lt;|&gt;|[<>]|\u0000/.test(w));
+    ok(dirty.length === 0, 'data-wiki 锚点全是纯文本（共 ' + wikis.length + ' 条）' +
+       (dirty.length ? '，脏 ' + dirty.length + ' 条，例：' + dirty[0].slice(0, 60) : ''));
+    // 转义竖线 \| 被 partition 切开后，留在 target 末尾的是【单个反斜杠】——查它
+    const esc = wikis.filter(w => w.includes('\\'));
+    ok(esc.length === 0, 'data-wiki 里没有残留的反斜杠（转义竖线切歪的痕迹）' +
+       (esc.length ? '，' + esc.length + ' 条，例：' + esc[0].slice(0, 60) : ''));
   }
 
   console.log('\n— 路由（套壳侧滑的关键）—');

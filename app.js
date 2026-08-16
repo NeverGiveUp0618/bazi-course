@@ -442,16 +442,28 @@ function bindDoc(root) {
   });
 }
 function gotoWiki(name) {
+  /* 链接写作「八字06-未入辰库是什么意思#八、⭐ 追问：…」——# 后面是【标题原文】。
+     ⚠️ 以前整串拿去匹配篇号，锚点被直接丢掉，点进去永远落在文章顶部；
+        笔记动辄几百行，等于"能跳到、但找不着"。
+     这里把锚点拆出来，交给搜索那套 findInDoc 按纯文本定位并高亮——
+     ⭐ 故意不在前端复刻 build.py 的 slug 规则：那要求两边永远同步，太脆。
+        按标题文本找，改了 slug 规则也不会坏。找不到就退化成落顶部，不会更糟。*/
+  var find = null, h = name.indexOf('#');
+  if (h >= 0) {
+    var anchor = name.slice(h + 1).trim();
+    name = name.slice(0, h);
+    if (anchor) find = { kw: anchor, occ: 0 };
+  }
   // 先认几个整页目标，否则「99-命例题库」会被下面的章号规则误当成第99章
-  if (/问题清单/.test(name)) { show('index', null); return; }
-  if (/总目录|学习路线/.test(name)) { show('outline', null); return; }
-  if (/命例题库/.test(name)) { show('qlist', null); return; }
+  if (/问题清单/.test(name)) { show('index', null, find); return; }
+  if (/总目录|学习路线/.test(name)) { show('outline', null, find); return; }
+  if (/命例题库/.test(name)) { show('qlist', null, find); return; }
   var m = /八字(\d+)/.exec(name);
-  if (m) { show('note', +m[1]); return; }
+  if (m) { show('note', +m[1], find); return; }
   m = /题\s*(\d+)/.exec(name);
-  if (m) { show('quiz', +m[1]); return; }
+  if (m) { show('quiz', +m[1], find); return; }
   m = /第?\s*(\d+)\s*[章篇]/.exec(name);
-  if (m) { show('chapter', +m[1]); return; }
+  if (m) { show('chapter', +m[1], find); return; }
   show('search', null);
   setTimeout(function () { $('#q').value = name; doSearch(); }, 60);
 }

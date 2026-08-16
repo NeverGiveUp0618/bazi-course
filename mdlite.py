@@ -55,9 +55,20 @@ def _inline(s):
     # [[目标]] 或 Obsidian 的 [[目标|显示文本]]——后者只显示竖线后半段
     def _wiki(m):
         raw = m.group(1)
+        # ⚠️ 表格里的 wiki 链接写作 [[目标#锚点\|显示文本]]——竖线被转义过，
+        #    直接 partition('|') 会把 \ 留在 target 末尾，锚点因此匹配不上。
+        raw = raw.replace('\\|', '|')
         target, _, label = raw.partition('|')
+        # ⚠️ data-wiki 要给运行时按【标题纯文本】定位锚点（见 app.js gotoWiki），
+        #    但这一步跑在 _INLINE_CODE/_QUOTE/_BOLD 之后，target 里已经混进了
+        #    \x00C0\x00 代码占位与 <q>/<strong>/<span> 标记。
+        #    不还原成纯文本，锚点就永远匹配不上目标标题（曾有 73 条锚点因此失效）。
+        plain = target
+        for _i, _c in enumerate(stash):
+            plain = plain.replace(f'\x00C{_i}\x00', _c)
+        plain = re.sub(r'<[^>]+>', '', plain)
         return ('<a class="wiki" data-wiki="%s">%s</a>'
-                % (_html.escape(target, quote=True), label or target))
+                % (_html.escape(plain, quote=True), label or target))
     s = _WIKI.sub(_wiki, s)
     for i, c in enumerate(stash):
         s = s.replace(f'\x00C{i}\x00', f'<code>{_html.escape(c, quote=False)}</code>')
