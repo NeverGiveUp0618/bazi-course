@@ -31,7 +31,9 @@ window.eval(`
     const el = window.__origCreate(t);
     if (t === 'script') {
       Object.defineProperty(el, 'src', {
-        set(v){ setTimeout(()=> el.onload && el.onload(), 0); },
+        // 记下真实请求的 URL —— 按需加载有没有带版本参数，全靠它验
+        set(v){ (window.__reqSrc = window.__reqSrc || []).push(v);
+                setTimeout(()=> el.onload && el.onload(), 0); },
         get(){ return ''; }
       });
     }
@@ -107,6 +109,20 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     const esc = wikis.filter(w => w.includes('\\'));
     ok(esc.length === 0, 'data-wiki 里没有残留的反斜杠（转义竖线切歪的痕迹）' +
        (esc.length ? '，' + esc.length + ' 条，例：' + esc[0].slice(0, 60) : ''));
+  }
+
+  /* ⚠️ 2026-08-16 回归锁：按需加载的四个 data 文件必须带版本参数。
+     index.html 只同步引 data-meta.js，其余四个是运行时插 <script> 拉的；
+     URL 恒定 + GitHub Pages 的 max-age=600 ⇒ 内容更新了用户却拿旧缓存
+     （用户报过一次"网站上看不到新加的内容"，实际早已推上线）。*/
+  {
+    // app.js 整个包在 IIFE 里，内部函数取不到 —— 只能验真实发出的请求
+    const reqs = window.__reqSrc || [];
+    ok(reqs.length > 0, '按需加载确实发生过，共 ' + reqs.length + ' 次');
+    const noVer = reqs.filter(u => !/\?v=\d{8,}$/.test(u));
+    ok(noVer.length === 0,
+       '按需加载的 URL 都带版本参数（例：' + (reqs[0] || '') + '）' +
+       (noVer.length ? '，缺版本的：' + noVer.slice(0, 3).join(' ') : ''));
   }
 
   console.log('\n— 路由（套壳侧滑的关键）—');

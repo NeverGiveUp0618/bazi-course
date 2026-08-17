@@ -42,11 +42,20 @@ function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch 
 
 /* ============================ 按需加载 ============================ */
 var loaded = {};
+/* ⚠️ 按需加载的四个 data 文件必须带版本参数（2026-08-16 用户报「网站上看不到新加的内容」）：
+   index.html 只同步引 data-meta.js，其余四个是运行时插 <script> 拉的。
+   URL 一直是 data/data-notes.js 不变，而 GitHub Pages 给的是 cache-control:max-age=600，
+   于是内容更新了、地址没变，浏览器照旧吃缓存。⭐ 版本取 DATA_META.built（每次构建都变）。
+   ⚠️ 微信 X5 会无视 ?query 按路径缓存 —— 那一层靠 sw 的网络优先兜底，两手都要。*/
+function dataVer() {
+  var b = (window.DATA_META && window.DATA_META.built) || '';
+  return b.replace(/\D/g, '') || '0';
+}
 function need(file, globalName) {
   if (loaded[file]) return Promise.resolve(window[globalName]);
   return new Promise(function (res, rej) {
     var s = document.createElement('script');
-    s.src = 'data/' + file;
+    s.src = 'data/' + file + '?v=' + dataVer();
     s.onload = function () { loaded[file] = 1; res(window[globalName]); };
     s.onerror = function () { rej(new Error('加载失败 ' + file)); };
     document.head.appendChild(s);
