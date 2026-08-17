@@ -51,11 +51,11 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#s-home').classList.contains('active'), '首页激活');
   // ⚠️ 别再把题数写死（build.py 的 BASE 当初就栽在 != 上）：
   //    内容一直在加，这里验的是「三处口径一致 + 不跌破基线」。
-  const BASE = { course: 16, notes: 14, quiz: 334 };
+  const BASE = { course: 16, notes: 15, quiz: 334 };
   const QUIZ = Number($('#hQuiz').textContent);
   ok(QUIZ >= BASE.quiz, `统计显示 ${QUIZ} 道命例（基线 ${BASE.quiz}）`);
   ok(Number($('#hCourse').textContent) >= BASE.course, '统计显示 16 章');
-  ok(Number($('#hNotes').textContent) >= BASE.notes, '统计显示 14 篇');
+  ok(Number($('#hNotes').textContent) >= BASE.notes, '统计显示 ' + BASE.notes + ' 篇（基线）');
 
   console.log('\n— 教材 —');
   D.querySelector('[data-tab="course"]').click(); await wait();
@@ -331,9 +331,13 @@ const wait = () => new Promise(r => setTimeout(r, 30));
       JSON.stringify({ c1: 100, c2: 100, n1: 100, n2: 100, n3: 100 }));
     D.querySelector('[data-tab="home"]').click(); await wait();
     const chips = $('#progChips').textContent;
-    ok(/教材 2\/16/.test(chips), '首页显示 教材 2/16');
-    ok(/笔记 3\/14/.test(chips), '首页也显示 笔记 3/14（以前笔记根本不计）：' + chips);
-    ok(/命例/.test(chips), '首页显示 命例 N/92');
+    /* ⚠️ 分母别写死（这里原来钉着 14，加第15篇笔记就红了——
+       而隔壁那条断言恰恰在查"看板里不许写死 /16 /14 /92"，自己却犯同样的毛病）。
+       验的是【分子对、分母跟着 BASE 走】。*/
+    ok(new RegExp('教材 2/' + BASE.course).test(chips), '首页显示 教材 2/' + BASE.course);
+    ok(new RegExp('笔记 3/' + BASE.notes).test(chips),
+       '首页也显示 笔记 3/' + BASE.notes + '（以前笔记根本不计）：' + chips);
+    ok(/命例 \d+\/\d+/.test(chips), '首页显示 命例 N/M：' + chips);
     window.localStorage.removeItem('bazi_course_read');
   }
 
