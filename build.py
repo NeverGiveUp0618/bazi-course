@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-"""把 Obsidian 里的 markdown 编译成站点数据。
+"""把 content/ 里的 markdown 编译成站点数据。
 
 ⭐ 内容源唯一性：markdown 是源，data/*.js 是产物。
-   永远只在 Obsidian 里改内容，然后重跑本脚本。不要直接改 data/*.js。
+   永远只在 content/ 里改内容，然后重跑本脚本。不要直接改 data/*.js。
 
 用法：  python3 build.py
 """
@@ -14,8 +14,7 @@ import sys
 
 from mdlite import md2html, strip_md
 
-SRC = os.path.expanduser(
-    '~/Library/Mobile Documents/iCloud~md~obsidian/Documents/MyNotes/学习')
+SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'content')
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
 
 
