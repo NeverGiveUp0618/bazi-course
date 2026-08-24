@@ -56,6 +56,10 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(QUIZ >= BASE.quiz, `统计显示 ${QUIZ} 道命例（基线 ${BASE.quiz}）`);
   ok(Number($('#hCourse').textContent) >= BASE.course, '统计显示 16 章');
   ok(Number($('#hNotes').textContent) >= BASE.notes, '统计显示 ' + BASE.notes + ' 篇（基线）');
+  // ⚠️ 首页「练」格里的数字曾在 index.html 写死成「92道命例」，题库涨到 375 都没跟上。
+  //    这条断言就是防它再被写死：必须和上面的统计同一个数。
+  ok($('#mQuiz').textContent === QUIZ + '道命例',
+     '「练」格数字跟着题库走（' + $('#mQuiz').textContent + '），没写死');
 
   console.log('\n— 教材 —');
   D.querySelector('[data-tab="course"]').click(); await wait();
@@ -138,12 +142,19 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(rows.length === QUIZ, `题库列出 ${rows.length} 题，与首页统计 ${QUIZ} 一致`);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
 
-  console.log('\n— 界面上不显示题号（编号只是内容源里的锚点）—');
-  ok(!D.querySelector('#qRows .qrow .n'), '列表行里没有题号那一列');
-  ok(Array.from(D.querySelectorAll('#qRows .qrow')).every(r => !/^\s*\d+\s/.test(r.textContent)),
-     '行首不是数字');
-  ok(/data-q=/.test(D.querySelector('#qRows .qrow').outerHTML),
-     '但 data-q 还在——题目之间的互相引用与跳转仍靠它');
+  console.log('\n— 行首是连续序号 seq，不是内容源题号 n —');
+  {
+    const rows = Array.from(D.querySelectorAll('#qRows .qrow'));
+    const Qd = window.DATA_QUIZ;
+    ok(rows.every(r => r.querySelector('.qn')), '每行都有序号那一列');
+    // ⚠️ 关键区分：显示的必须是 seq。拿 n 冒充会跳号，用户就是嫌它「晕」才撤过一次
+    ok(rows.every(r => {
+      const it = Qd.items.filter(x => x.n === +r.dataset.q)[0];
+      return it && r.querySelector('.qn').textContent === String(it.seq);
+    }), '显示的是 seq 而不是 n');
+    ok(/data-q=/.test(D.querySelector('#qRows .qrow').outerHTML),
+       '但 data-q 还是 n——题目之间的互相引用与跳转仍靠它');
+  }
 
   console.log('\n— 题库按资料篇目折叠 —');
   {
@@ -151,21 +162,26 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     const grps = Array.from(D.querySelectorAll('#qRows .qgrp'));
     ok(grps.length === Q.topics.length, `分成 ${grps.length} 组（＝手上那些 PDF 的篇目）`);
     ok(grps.every(g => !g.classList.contains('open')), '默认全部折叠');
-    // 顺序必须＝build 里的 QUIZ_SOURCES（资料编号顺序），不是按题数排
-    const shown = grps.map(g => g.dataset.g);
-    ok(shown.join('|') === Q.topics.map(t => t.name).join('|'), '组的顺序＝资料编号顺序');
-    const pick = (n) => Q.items.find(it => it.n === n).topic;
-    ok(/^01 · 财运篇/.test(shown[0]) && /神煞/.test(shown[shown.length - 1]),
-       '第一组是 01·财运篇、最后是 19·神煞断法（不是按题数排）');
-    // 编号必须与资料目录一致：车祸＝02（不是09）、牢狱＝09、学历＝13（不是10）
-    ok(shown.some(n => /^02 · 车祸篇/.test(n)), '车祸篇编号是 02');
-    ok(shown.some(n => /^09 · 牢狱篇/.test(n)), '牢狱篇编号是 09，已从职业篇拆出来');
-    ok(shown.some(n => /^13 · 学历篇/.test(n)), '学历篇编号是 13');
-    ok(shown.some(n => /^14 · 职业篇/.test(n)), '职业篇编号是 14');
+    const shown = grps.map(g => g.querySelector('.nm').textContent);
+    const pick = n => (Q.items.filter(x => x.n === n)[0] || {}).topic;
+    // 顺序必须＝build 里的 QUIZ_SOURCES（学习顺序），不是按题数、也不再按资料册号排
+    ok(shown.join('|') === Q.topics.map(t => t.name).join('|'), '组的顺序＝QUIZ_SOURCES');
+    // ⭐ 用户 2026-08-24 定的三段顺序，锁住别再被"优化"回册号序
+    ok(shown.slice(0, 3).join('|') === '初级班|中级班|高级班', '前三组＝初→中→高级班');
+    const noPian = shown.slice(3, 7), pian = shown.slice(7);
+    ok(noPian.every(n => !/篇$/.test(n)), '中段是不带「篇」的技巧类');
+    ok(pian.every(n => /篇$/.test(n)) && pian.length === 10, '末段全是带「篇」的主题类（10 组）');
+    ok(shown.every(n => !/^\d/.test(n)), '组名不再带资料册号前缀');
     // 「三·W」是「三·W2」的前缀，若匹配顺序写错，牢狱篇会被职业篇整组吞掉
-    ok(pick(310) === '14 · 职业篇' && pick(312) === '09 · 牢狱篇',
+    ok(pick(310) === '职业篇' && pick(312) === '牢狱篇',
        '前缀相同的两组没被吞掉（题310→职业、题312→牢狱）');
-    ok(shown.every(n => /^\d\d · /.test(n)), '每组都带资料编号，和手上的 PDF 对得上');
+    // ⭐ 连续序号：从上到下 1…375 不跳号，且按组顺序递增
+    const seqs = Q.items.map(x => x.seq).sort((a, b) => a - b);
+    ok(seqs[0] === 1 && seqs[seqs.length - 1] === Q.items.length &&
+       seqs.every((v, i) => v === i + 1), '案例序号 1…' + Q.items.length + ' 连续不跳号');
+    const firstOf = n => Math.min(...Q.items.filter(x => x.topic === n).map(x => x.seq));
+    ok(shown.every((n, i) => i === 0 || firstOf(n) > firstOf(shown[i - 1])),
+       '序号按组顺序从上往下递增');
     // 归属抽查：题目确实来自它所在的那册
     ok(/断命例题解/.test(pick(1)), '题1（出处〔例题解〕）归到 04·断命例题解');
     ok(/实战技巧/.test(pick(21)), '题21（三·B 来自实战技巧完整版）归到 16·实战技巧');

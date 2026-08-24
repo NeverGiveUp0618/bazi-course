@@ -284,6 +284,9 @@ RENDER.home = function () {
   $('#hCourse').textContent = c.course || 0;
   $('#hNotes').textContent = c.notes || 0;
   $('#hQuiz').textContent = c.quiz || 0;
+  // ⚠️ 首页「练」格里的数字曾写死成「92道命例」，题库涨到 375 都没跟上——
+  //    从此只从 counts 取，别再往 html 里回填数字。
+  var mq = $('#mQuiz'); if (mq) mq.textContent = (c.quiz || 0) + '道命例';
   $('#buildInfo').textContent = '内容更新于 ' + (META.built || '—');
 
   var read = ls(K.read, {});
@@ -575,9 +578,10 @@ RENDER.qlist = function () {
         '<span class="nm">' + esc(tp.name) + '</span>' +
         '<span class="ct">' + (done ? done + '/' : '') + its.length + '</span></button>' +
         '<div class="qgb">' + its.map(function (it) {
-          // ⚠️ 不显示题号：编号只是内容源里的锚点（build 分块、题间互相引用要用），
-          //    列在界面上只会让人眼花——用户 2026-08-24 明确要求去掉。
+          // ⚠️ 显示的是 **it.seq**（从上往下 1…375 的连续号，build.py 按组顺序排的），
+          //    **不是 it.n**——n 是内容源锚点，跳号乱序，2026-08-24 就是因为它「看着晕」才撤掉的。
           return '<div class="qrow" data-q="' + it.n + '">' +
+            '<span class="qn">' + it.seq + '</span>' +
             '<span class="t">' + (it.star ? '⭐'.repeat(Math.min(it.star, 3)) + ' ' : '') + esc(it.title) +
             (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
             '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
@@ -603,7 +607,7 @@ RENDER.quiz = function (n) {
   needQuiz().then(function (Q) {
     var it = Q.items.filter(function (x) { return x.n === n; })[0];
     if (!it) return;
-    $('#ttl').textContent = '命例';
+    $('#ttl').textContent = '命例 ' + (it.seq || '');
 
     var h = '<div class="card">';
     h += '<div class="qhead"><span class="tt">' + esc(it.title) + '</span></div>';
