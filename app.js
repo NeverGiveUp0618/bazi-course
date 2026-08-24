@@ -323,7 +323,7 @@ RENDER.home = function () {
 function lastLabel(l) {
   if (l.scr === 'chapter') return '第 ' + l.id + ' 章';
   if (l.scr === 'note') return '笔记 ' + l.id;
-  if (l.scr === 'quiz') return '第 ' + l.id + ' 题';
+  if (l.scr === 'quiz') return '命例';
   return TITLES[l.scr] || '';
 }
 
@@ -575,8 +575,9 @@ RENDER.qlist = function () {
         '<span class="nm">' + esc(tp.name) + '</span>' +
         '<span class="ct">' + (done ? done + '/' : '') + its.length + '</span></button>' +
         '<div class="qgb">' + its.map(function (it) {
+          // ⚠️ 不显示题号：编号只是内容源里的锚点（build 分块、题间互相引用要用），
+          //    列在界面上只会让人眼花——用户 2026-08-24 明确要求去掉。
           return '<div class="qrow" data-q="' + it.n + '">' +
-            '<span class="n">' + it.n + '</span>' +
             '<span class="t">' + (it.star ? '⭐' : '') + esc(it.title) +
             (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
             '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
@@ -602,11 +603,10 @@ RENDER.quiz = function (n) {
   needQuiz().then(function (Q) {
     var it = Q.items.filter(function (x) { return x.n === n; })[0];
     if (!it) return;
-    $('#ttl').textContent = '第 ' + it.n + ' 题';
+    $('#ttl').textContent = '命例';
 
     var h = '<div class="card">';
-    h += '<div class="qhead"><span class="no">' + it.n + '</span>' +
-         '<span class="tt">' + esc(it.title) + '</span></div>';
+    h += '<div class="qhead"><span class="tt">' + esc(it.title) + '</span></div>';
     if (it.tags.length) {
       h += '<div class="row wrap" style="gap:5px;margin:6px 0 2px">' +
         it.tags.map(function (t) { return '<span class="pill g">' + esc(t) + '</span>'; }).join('') +
@@ -963,7 +963,7 @@ function doSearch() {
     r[1].forEach(function (c) { scan(c.text, '笔记 · ' + c.title, 'note', c.n); });
     var qt = quizTexts(r[2]);
     r[2].items.forEach(function (q, i) {
-      scan(qt[i], '题' + q.n + ' · ' + q.title, 'quiz', q.n);
+      scan(qt[i], q.title, 'quiz', q.n);
     });
 
     if (!hits.length) {

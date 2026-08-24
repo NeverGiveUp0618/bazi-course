@@ -138,6 +138,13 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(rows.length === QUIZ, `题库列出 ${rows.length} 题，与首页统计 ${QUIZ} 一致`);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
 
+  console.log('\n— 界面上不显示题号（编号只是内容源里的锚点）—');
+  ok(!D.querySelector('#qRows .qrow .n'), '列表行里没有题号那一列');
+  ok(Array.from(D.querySelectorAll('#qRows .qrow')).every(r => !/^\s*\d+\s/.test(r.textContent)),
+     '行首不是数字');
+  ok(/data-q=/.test(D.querySelector('#qRows .qrow').outerHTML),
+     '但 data-q 还在——题目之间的互相引用与跳转仍靠它');
+
   console.log('\n— 题库按资料篇目折叠 —');
   {
     const Q = window.DATA_QUIZ;
@@ -198,7 +205,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(fm.join(',') === 'all,new,star,chart', '筛选只剩 全部/没看过/精读/有完整盘：' + fm.join(','));
 
   // 题3：单盘题 —— 题头应有四柱大盘
-  const r3 = Array.from(rows).find(r => r.querySelector('.n').textContent === '3');
+  const r3 = Array.from(rows).find(r => r.dataset.q === '3');
   r3.click(); await wait();
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '单盘题：题头不再画大盘（避免同一个盘出现两次）');
   ok($('#stickyChart').querySelectorAll('.c').length === 4, '单盘题：吸顶条 4 柱');
@@ -212,7 +219,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   // 题21：双命对照题 —— 两个盘都要留在正文，题头不放大盘
   D.querySelector('[data-tab="qlist"]').click(); await wait();
   const rows21 = D.querySelectorAll('#qRows [data-q]');
-  const r21 = Array.from(rows21).find(r => r.querySelector('.n').textContent === '21');
+  const r21 = Array.from(rows21).find(r => r.dataset.q === '21');
   r21.click(); await wait();
   ok($('#s-quiz').classList.contains('active'), '进入题21');
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '多盘题：题头不放大盘');
@@ -244,14 +251,20 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(!!seen['21'], '看过答案后记下题号 21');
   ok(!!$('#qnav') && !!$('#bPrev') && !!$('#bNext'), '上一题/下一题导航出现');
   $('#bNext').click(); await wait();
-  ok($('#ttl').textContent === '第 22 题', '下一题 → 22，实为 ' + $('#ttl').textContent);
+  {
+    const t22 = window.DATA_QUIZ.items.find(i => i.n === 22).title;
+    ok($('#quizBody .qhead .tt').textContent === t22, '下一题 → 22（顶栏不再显示题号，用题头标题核对）');
+  }
   $('#bPrev').click(); await wait();
-  ok($('#ttl').textContent === '第 21 题', '上一题 → 21');
+  {
+    const t21 = window.DATA_QUIZ.items.find(i => i.n === 21).title;
+    ok($('#quizBody .qhead .tt').textContent === t21, '上一题 → 21');
+  }
 
   console.log('\n— 反推题不该有假答案 —');
   D.querySelector('[data-tab="qlist"]').click(); await wait();
   const rowsB = D.querySelectorAll('#qRows [data-q]');
-  const r53 = Array.from(rowsB).find(r => r.querySelector('.n').textContent === '53');
+  const r53 = Array.from(rowsB).find(r => r.dataset.q === '53');
   r53.click(); await wait();
   ok($('#bJie').textContent.includes('提示'), '反推题按钮显示「看提示方向」');
   $('#bJie').click(); await wait();
@@ -287,13 +300,14 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   {
     // 「羊刃」在题17 只出现在拆解里，旧的 q.text 截断后根本搜不到
     const h = await search('羊刃');
-    const q17 = Array.from(h).find(e => /^题17/.test(e.querySelector('b').textContent));
+    const t17 = window.DATA_QUIZ.items.find(i => i.n === 17).title;
+    const q17 = Array.from(h).find(e => e.querySelector('b').textContent.indexOf(t17) === 0);
     ok(!!q17, '搜到题17 的「羊刃」——它只写在拆解里');
     const raw = window.DATA_QUIZ.items.find(i => i.n === 17);
     ok(raw.text.indexOf('羊刃') < 0, '（对照）data 的 text 字段里确实没有它，说明走的是新的全文提取');
 
     q17.click(); await wait();
-    ok($('#ttl').textContent === '第 17 题', '点结果跳进题17');
+    ok($('#quizBody .qhead .tt').textContent === t17, '点结果跳进题17');
     ok($('#L2').innerHTML.length > 100, '命中在折叠层里 → 「解」自动展开');
     ok($('#L3').innerHTML.includes('我补的推理'), '命中在拆解里 → 拆解也自动展开');
     ok(/命中在.*已经展开/.test($('#toastTxt').textContent), '提示条说明了为什么自动展开');
