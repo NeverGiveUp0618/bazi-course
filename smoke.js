@@ -147,11 +147,19 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     // 顺序必须＝build 里的 QUIZ_SOURCES（资料编号顺序），不是按题数排
     const shown = grps.map(g => g.dataset.g);
     ok(shown.join('|') === Q.topics.map(t => t.name).join('|'), '组的顺序＝资料编号顺序');
+    const pick = (n) => Q.items.find(it => it.n === n).topic;
     ok(/^01 · 财运篇/.test(shown[0]) && /神煞/.test(shown[shown.length - 1]),
        '第一组是 01·财运篇、最后是 19·神煞断法（不是按题数排）');
+    // 编号必须与资料目录一致：车祸＝02（不是09）、牢狱＝09、学历＝13（不是10）
+    ok(shown.some(n => /^02 · 车祸篇/.test(n)), '车祸篇编号是 02');
+    ok(shown.some(n => /^09 · 牢狱篇/.test(n)), '牢狱篇编号是 09，已从职业篇拆出来');
+    ok(shown.some(n => /^13 · 学历篇/.test(n)), '学历篇编号是 13');
+    ok(shown.some(n => /^14 · 职业篇/.test(n)), '职业篇编号是 14');
+    // 「三·W」是「三·W2」的前缀，若匹配顺序写错，牢狱篇会被职业篇整组吞掉
+    ok(pick(310) === '14 · 职业篇' && pick(312) === '09 · 牢狱篇',
+       '前缀相同的两组没被吞掉（题310→职业、题312→牢狱）');
     ok(shown.every(n => /^\d\d · /.test(n)), '每组都带资料编号，和手上的 PDF 对得上');
     // 归属抽查：题目确实来自它所在的那册
-    const pick = (n) => Q.items.find(it => it.n === n).topic;
     ok(/断命例题解/.test(pick(1)), '题1（出处〔例题解〕）归到 04·断命例题解');
     ok(/实战技巧/.test(pick(21)), '题21（三·B 来自实战技巧完整版）归到 16·实战技巧');
     ok(/婚姻篇/.test(pick(240)) || /婚姻/.test(pick(240)), '婚姻篇的题归到婚姻篇');
