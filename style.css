@@ -512,3 +512,20 @@ html.wst-frame-guard .toast{bottom:calc(58px + 12px)}
   font-size:12px;font-family:inherit;padding:5px 10px;border-radius:7px;cursor:pointer
 }
 .mnact button.del{color:var(--cinnabar);border-color:transparent;margin-left:auto}
+
+/* ── 题库主题分组（334 题平铺一屏找不着，按主题折叠） ── */
+.qgrp{border-bottom:1px solid var(--line)}
+.qgrp:last-child{border-bottom:0}
+.qgh{all:unset;cursor:pointer;display:flex;align-items:center;gap:9px;width:100%;
+  padding:12px 14px;box-sizing:border-box}
+.qgh:hover{background:var(--bg2)}
+.qgh:focus-visible{outline:2px solid var(--indigo);outline-offset:-2px}
+.qgh .ar{flex:0 0 auto;font-size:13px;color:var(--ink3);transition:transform .18s;display:inline-block}
+.qgrp.open .qgh .ar{transform:rotate(90deg)}
+.qgh .nm{flex:1;font-size:14.5px;font-weight:600;min-width:0}
+.qgrp.open .qgh .nm{color:var(--indigo)}
+.qgh .ct{flex:0 0 auto;font-size:11.5px;color:var(--ink3);font-variant-numeric:tabular-nums}
+.qgb{display:none}
+.qgrp.open .qgb{display:block}
+.qgb .qrow{padding-left:32px}
+@media (prefers-reduced-motion:reduce){.qgh .ar{transition:none}}

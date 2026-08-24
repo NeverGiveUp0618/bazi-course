@@ -137,6 +137,50 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const rows = D.querySelectorAll('#qRows [data-q]');
   ok(rows.length === QUIZ, `题库列出 ${rows.length} 题，与首页统计 ${QUIZ} 一致`);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
+
+  console.log('\n— 题库按主题折叠 —');
+  {
+    const Q = window.DATA_QUIZ;
+    const grps = Array.from(D.querySelectorAll('#qRows .qgrp'));
+    ok(grps.length === Q.topics.length, `分成 ${grps.length} 个主题组`);
+    ok(grps.every(g => !g.classList.contains('open')), '默认全部折叠');
+    // 顺序必须＝build 里的 QUIZ_TOPICS（教材学习顺序），不是按题数排
+    const shown = grps.map(g => g.dataset.g);
+    ok(shown.join('|') === Q.topics.map(t => t.name).join('|'),
+       '组的顺序＝教材学习顺序（虚实→十神→作用方式→…→分类断法）');
+    ok(shown[0].indexOf('虚实') === 0 && /综合/.test(shown[shown.length - 1]),
+       '第一组是虚实、最后一组是方法综合（不是按题数排）');
+    // 每题只进一组，且总数守恒
+    const sum = grps.reduce((n, g) => n + g.querySelectorAll('[data-q]').length, 0);
+    ok(sum === QUIZ, `各组题数之和 ${sum} ＝ 全部 ${QUIZ} 题（一题只进一组）`);
+    const ids = grps.flatMap(g => Array.from(g.querySelectorAll('[data-q]')).map(e => e.dataset.q));
+    ok(new Set(ids).size === ids.length, '没有题重复出现在两个组里');
+    ok(Q.items.every(it => it.topic && it.topic !== '未归类'), '每题都有归属主题，没有未归类');
+
+    // 展开／收起，并记住状态
+    const g3 = grps[2];
+    g3.querySelector('.qgh').click();
+    ok(g3.classList.contains('open'), '点组标题展开');
+    ok(g3.querySelectorAll('[data-q]').length > 0, '展开后能看到题');
+    const saved = JSON.parse(window.localStorage.getItem('bazi_course_qopen') || '{}');
+    ok(saved[g3.dataset.g] === 1, '展开状态存进 bazi_course_qopen');
+    g3.querySelector('.qgh').click();
+    ok(!g3.classList.contains('open'), '再点收起');
+    ok(!JSON.parse(window.localStorage.getItem('bazi_course_qopen') || '{}')[g3.dataset.g],
+       '收起后从存储里移除');
+
+    // ⚠️ 筛选后必须自动展开，否则结果藏在折叠里等于没筛
+    const tagBtn = Array.from(D.querySelectorAll('#qTags [data-t]')).find(e => e.dataset.t === '墓库');
+    tagBtn.click(); await wait();
+    const g2 = Array.from(D.querySelectorAll('#qRows .qgrp'));
+    ok(g2.length > 0 && g2.every(g => g.classList.contains('open')),
+       '筛了考点之后各组自动展开（不然筛出来的题看不见）');
+    ok(g2.reduce((n, g) => n + g.querySelectorAll('[data-q]').length, 0) < QUIZ, '筛选确实生效');
+    Array.from(D.querySelectorAll('#qTags [data-t]')).find(e => e.dataset.t === '').click();
+    await wait();
+  }
+  const rows0 = D.querySelectorAll('#qRows [data-q]');
+  ok(rows0.length === QUIZ, '清掉筛选后又是全部 ' + QUIZ + ' 题');
   const fm = Array.from(D.querySelectorAll('#qFilters [data-m]')).map(e => e.dataset.m);
   ok(fm.join(',') === 'all,new,star,chart', '筛选只剩 全部/没看过/精读/有完整盘：' + fm.join(','));
 

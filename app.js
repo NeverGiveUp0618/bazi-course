@@ -26,6 +26,8 @@ var K = {
   seen: 'bazi_course_seen',
   last: 'bazi_course_last',
   pos:  'bazi_course_pos',
+  // 题库里哪些主题是展开的（按主题名存），默认全折叠
+  qopen: 'bazi_course_qopen',
   // 内容总量，写给五术堂导航看板当分母用——内容会一直加，
   // 看板那边不该再把 16/14/92 写死在字符串里
   counts: 'bazi_course_counts',
@@ -554,13 +556,44 @@ RENDER.qlist = function () {
     });
 
     if (!list.length) { box.innerHTML = '<div class="empty">这个筛选下没有题</div>'; return; }
-    box.innerHTML = list.map(function (it) {
-      return '<div class="qrow" data-q="' + it.n + '">' +
-        '<span class="n">' + it.n + '</span>' +
-        '<span class="t">' + (it.star ? '⭐' : '') + esc(it.title) +
-        (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
-        '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
+
+    /* 按主题分组折叠。334 题平铺一屏要滚很久，找不到自己要练的那类。
+       ⚠️ 分组口径在 build.py 的 QUIZ_TOPICS（按 tags[0] 归、顺序＝教材学习顺序），
+          这里只负责画，**别在这儿另写一份主题表**。
+       ⚠️ 一旦筛了考点或模式，全部展开——否则筛出来的结果藏在折叠里，等于没筛。 */
+    var filtering = !!(qFilter.tag || qFilter.mode !== 'all');
+    var open = ls(K.qopen, {});
+    var byTopic = {};
+    list.forEach(function (it) { (byTopic[it.topic] = byTopic[it.topic] || []).push(it); });
+    var idx = ['一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五'];
+
+    box.innerHTML = (Q.topics || []).map(function (tp, i) {
+      var its = byTopic[tp.name] || [];
+      if (!its.length) return '';
+      var isOpen = filtering || !!open[tp.name];
+      var done = its.filter(function (it) { return seen[it.n]; }).length;
+      return '<div class="qgrp' + (isOpen ? ' open' : '') + '" data-g="' + esc(tp.name) + '">' +
+        '<button class="qgh"><span class="ar">›</span>' +
+        '<span class="nm">' + idx[i] + ' · ' + esc(tp.name) + '</span>' +
+        '<span class="ct">' + (done ? done + '/' : '') + its.length + '</span></button>' +
+        '<div class="qgb">' + its.map(function (it) {
+          return '<div class="qrow" data-q="' + it.n + '">' +
+            '<span class="n">' + it.n + '</span>' +
+            '<span class="t">' + (it.star ? '⭐' : '') + esc(it.title) +
+            (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
+            '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
+        }).join('') + '</div></div>';
     }).join('');
+
+    $$('.qgh', box).forEach(function (b) {
+      b.onclick = function () {
+        var g = b.parentNode, name = g.dataset.g;
+        g.classList.toggle('open');
+        var o = ls(K.qopen, {});
+        if (g.classList.contains('open')) o[name] = 1; else delete o[name];
+        save(K.qopen, o);
+      };
+    });
     $$('[data-q]', box).forEach(function (el) {
       el.onclick = function () { show('quiz', +el.dataset.q); };
     });

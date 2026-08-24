@@ -125,6 +125,50 @@ def parse_chart(b):
             b[:m.start()] + b[m.end():])
 
 
+# ── 题库主题分组 ────────────────────────────────────────────────
+# 334 题平铺一屏太长，按主题折叠。分组规则：
+#   ⭐ **只看 tags[0]** —— 题库整理时第一个标签就是主考点，一题只进一组，不重复出现。
+#   ⭐ **顺序＝教材的学习顺序**（虚实→十神→作用方式→墓库→做功→象法→应期→分类断法），
+#      不是按题数排——这样"学完哪章练哪组"能直接对上。
+# ⚠️ 这张表是**唯一**的归组口径，别在 app.js 里另抄一份。
+# ⚠️ 新加的标签若没被覆盖，build 会列出来并报错退出——别让它悄悄掉进"其他"。
+QUIZ_TOPICS = [
+    ('虚实·藏干·替身·禄', ['虚实', '藏干', '替身', '带象', '禄']),
+    ('十神', ['十神']),
+    ('合·自合·暗合·拱·三合', ['合', '自合', '暗合', '拱', '三合']),
+    ('冲·刑·穿·破·伏吟', ['冲', '刑', '穿', '破', '伏吟', '伏吟/反吟']),
+    ('墓库·空亡', ['墓库', '空亡']),
+    ('制与做功·主宾', ['制/做功', '主宾', '禁忌', '入手四步', '气势']),
+    ('象法·取象', ['象法', '阴阳象', '取数']),
+    ('应期', ['应期']),
+    ('财官·学业', ['财', '官', '学历']),
+    ('婚姻', ['婚姻']),
+    ('六亲', ['六亲']),
+    ('灾祸·疾病·牢狱', ['车祸', '神煞', '牢狱', '寿命', '灾祸']),
+    ('方法·综合', ['反推', '综合', '方法论']),
+]
+_TOPIC_OF = {t: name for name, ts in QUIZ_TOPICS for t in ts}
+
+
+def assign_topics(items):
+    """按主考点把每题归进一个主题；有没归上的直接报错，不许悄悄漏。"""
+    miss = {}
+    for it in items:
+        head = it['tags'][0] if it['tags'] else ''
+        name = _TOPIC_OF.get(head)
+        if not name:
+            miss.setdefault(head or '(无标签)', []).append(it['n'])
+        it['topic'] = name or '未归类'
+    if miss:
+        lines = ['✗ 这些主考点没写进 QUIZ_TOPICS，先决定它们归哪一组：']
+        for t, ns in sorted(miss.items(), key=lambda x: -len(x[1])):
+            lines.append('    %-12s %d 题（如题 %s）' % (t, len(ns), ns[0]))
+        sys.exit('\n'.join(lines))
+    return [{'name': n, 'n': sum(1 for it in items if it['topic'] == n)}
+            for n, _ in QUIZ_TOPICS]
+
+
+
 def build_quiz():
     raw = read(os.path.join(SRC, '实用八字教材', '99-命例题库.md'))
     # ⚠️ 必须要求题号是【数字】。文件末尾「扩充方法」的模板代码块里有一行
@@ -212,6 +256,7 @@ def build_quiz():
         })
 
     items.sort(key=lambda x: x['n'])
+    topics = assign_topics(items)
     tags = {}
     for it in items:
         for t in it['tags']:
@@ -220,6 +265,7 @@ def build_quiz():
         'intro': md2html(intro, heading_offset=1),
         'items': items,
         'tags': sorted(tags.items(), key=lambda x: -x[1]),
+        'topics': topics,
     }
 
 
