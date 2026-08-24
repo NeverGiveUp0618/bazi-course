@@ -421,9 +421,11 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     /* ⚠️ 分母别写死（这里原来钉着 14，加第15篇笔记就红了——
        而隔壁那条断言恰恰在查"看板里不许写死 /16 /14 /92"，自己却犯同样的毛病）。
        验的是【分子对、分母跟着 BASE 走】。*/
-    ok(new RegExp('教材 2/' + BASE.course).test(chips), '首页显示 教材 2/' + BASE.course);
-    ok(new RegExp('笔记 3/' + BASE.notes).test(chips),
-       '首页也显示 笔记 3/' + BASE.notes + '（以前笔记根本不计）：' + chips);
+    // 分母取【实际条数】而不是基线常数——基线只是下限，加一篇笔记就不该红。
+    const nCourse = window.DATA_COURSE.length, nNotes = window.DATA_NOTES.length;
+    ok(new RegExp('教材 2/' + nCourse).test(chips), '首页显示 教材 2/' + nCourse);
+    ok(new RegExp('笔记 3/' + nNotes).test(chips),
+       '首页也显示 笔记 3/' + nNotes + '（以前笔记根本不计）：' + chips);
     ok(/命例 \d+\/\d+/.test(chips), '首页显示 命例 N/M：' + chips);
     window.localStorage.removeItem('bazi_course_read');
   }
