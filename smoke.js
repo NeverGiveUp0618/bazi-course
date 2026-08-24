@@ -138,18 +138,23 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(rows.length === QUIZ, `题库列出 ${rows.length} 题，与首页统计 ${QUIZ} 一致`);
   ok(D.querySelectorAll('#qTags [data-t]').length > 10, '考点筛选已渲染');
 
-  console.log('\n— 题库按主题折叠 —');
+  console.log('\n— 题库按资料篇目折叠 —');
   {
     const Q = window.DATA_QUIZ;
     const grps = Array.from(D.querySelectorAll('#qRows .qgrp'));
-    ok(grps.length === Q.topics.length, `分成 ${grps.length} 个主题组`);
+    ok(grps.length === Q.topics.length, `分成 ${grps.length} 组（＝手上那些 PDF 的篇目）`);
     ok(grps.every(g => !g.classList.contains('open')), '默认全部折叠');
-    // 顺序必须＝build 里的 QUIZ_TOPICS（教材学习顺序），不是按题数排
+    // 顺序必须＝build 里的 QUIZ_SOURCES（资料编号顺序），不是按题数排
     const shown = grps.map(g => g.dataset.g);
-    ok(shown.join('|') === Q.topics.map(t => t.name).join('|'),
-       '组的顺序＝教材学习顺序（虚实→十神→作用方式→…→分类断法）');
-    ok(shown[0].indexOf('虚实') === 0 && /综合/.test(shown[shown.length - 1]),
-       '第一组是虚实、最后一组是方法综合（不是按题数排）');
+    ok(shown.join('|') === Q.topics.map(t => t.name).join('|'), '组的顺序＝资料编号顺序');
+    ok(/^01 · 财运篇/.test(shown[0]) && /神煞/.test(shown[shown.length - 1]),
+       '第一组是 01·财运篇、最后是 19·神煞断法（不是按题数排）');
+    ok(shown.every(n => /^\d\d · /.test(n)), '每组都带资料编号，和手上的 PDF 对得上');
+    // 归属抽查：题目确实来自它所在的那册
+    const pick = (n) => Q.items.find(it => it.n === n).topic;
+    ok(/断命例题解/.test(pick(1)), '题1（出处〔例题解〕）归到 04·断命例题解');
+    ok(/实战技巧/.test(pick(21)), '题21（三·B 来自实战技巧完整版）归到 16·实战技巧');
+    ok(/婚姻篇/.test(pick(240)) || /婚姻/.test(pick(240)), '婚姻篇的题归到婚姻篇');
     // 每题只进一组，且总数守恒
     const sum = grps.reduce((n, g) => n + g.querySelectorAll('[data-q]').length, 0);
     ok(sum === QUIZ, `各组题数之和 ${sum} ＝ 全部 ${QUIZ} 题（一题只进一组）`);

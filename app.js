@@ -565,8 +565,6 @@ RENDER.qlist = function () {
     var open = ls(K.qopen, {});
     var byTopic = {};
     list.forEach(function (it) { (byTopic[it.topic] = byTopic[it.topic] || []).push(it); });
-    var idx = ['一','二','三','四','五','六','七','八','九','十','十一','十二','十三','十四','十五'];
-
     box.innerHTML = (Q.topics || []).map(function (tp, i) {
       var its = byTopic[tp.name] || [];
       if (!its.length) return '';
@@ -574,7 +572,7 @@ RENDER.qlist = function () {
       var done = its.filter(function (it) { return seen[it.n]; }).length;
       return '<div class="qgrp' + (isOpen ? ' open' : '') + '" data-g="' + esc(tp.name) + '">' +
         '<button class="qgh"><span class="ar">›</span>' +
-        '<span class="nm">' + idx[i] + ' · ' + esc(tp.name) + '</span>' +
+        '<span class="nm">' + esc(tp.name) + '</span>' +
         '<span class="ct">' + (done ? done + '/' : '') + its.length + '</span></button>' +
         '<div class="qgb">' + its.map(function (it) {
           return '<div class="qrow" data-q="' + it.n + '">' +

@@ -125,48 +125,61 @@ def parse_chart(b):
             b[:m.start()] + b[m.end():])
 
 
-# ── 题库主题分组 ────────────────────────────────────────────────
-# 334 题平铺一屏太长，按主题折叠。分组规则：
-#   ⭐ **只看 tags[0]** —— 题库整理时第一个标签就是主考点，一题只进一组，不重复出现。
-#   ⭐ **顺序＝教材的学习顺序**（虚实→十神→作用方式→墓库→做功→象法→应期→分类断法），
-#      不是按题数排——这样"学完哪章练哪组"能直接对上。
-# ⚠️ 这张表是**唯一**的归组口径，别在 app.js 里另抄一份。
-# ⚠️ 新加的标签若没被覆盖，build 会列出来并报错退出——别让它悄悄掉进"其他"。
-QUIZ_TOPICS = [
-    ('虚实·藏干·替身·禄', ['虚实', '藏干', '替身', '带象', '禄']),
-    ('十神', ['十神']),
-    ('合·自合·暗合·拱·三合', ['合', '自合', '暗合', '拱', '三合']),
-    ('冲·刑·穿·破·伏吟', ['冲', '刑', '穿', '破', '伏吟', '伏吟/反吟']),
-    ('墓库·空亡', ['墓库', '空亡']),
-    ('制与做功·主宾', ['制/做功', '主宾', '禁忌', '入手四步', '气势']),
-    ('象法·取象', ['象法', '阴阳象', '取数']),
-    ('应期', ['应期']),
-    ('财官·学业', ['财', '官', '学历']),
-    ('婚姻', ['婚姻']),
-    ('六亲', ['六亲']),
-    ('灾祸·疾病·牢狱', ['车祸', '神煞', '牢狱', '寿命', '灾祸']),
-    ('方法·综合', ['反推', '综合', '方法论']),
+# ── 题库分组：按资料篇目 ────────────────────────────────────────
+# ⭐ 分组＝**题目来自哪一册资料**，组名和编号与手上那些 PDF 一一对应
+#    （01财运篇 / 03初级班 / 04断命例题解 / 05高级班 / 06官运篇 / 07婚姻篇 …）。
+#    想练哪篇就点哪组——这是用户找题时真正的心智模型。
+# ⚠️ **知识点维度不放在这里**：考点标签（合/穿/墓库/象法…）已经有独立的筛选条，
+#    两个维度互补，别在分组上再做一遍。
+#
+# 归属依据（都已核对过题目里的出处引用，不是凭标题猜）：
+#   · 「三、题库正文」第一批 20 题 —— 出处全是〔例题解 pN〕→ 归 04
+#   · 三·C/三·D 穿专项 —— 出处是〔实战技巧完整版 pN〕→ 归 16
+#   · 三·O/三·P 标题里自带册号（19、神煞…／18、地支四墓库…）
+# ⚠️ 内容源里新加 `## 三·X 某某` 分组而这里没登记，build 直接报错退出。
+QUIZ_SOURCES = [
+    ('01 · 财运篇',       ['三·S']),
+    ('03 · 初级班',       ['三·K', '三·L', '三·M']),
+    ('04 · 断命例题解',   ['三、题库正文', '三·G', '三·H', '三·I', '三·J']),
+    ('05 · 高级班',       ['三·N']),
+    ('06 · 官运篇',       ['三·T']),
+    ('07 · 婚姻篇',       ['三·Q', '三·R']),
+    ('08 · 疾病篇',       ['三·U']),
+    ('09 · 车祸篇',       ['三·X']),
+    ('10 · 六亲篇',       ['三·V']),
+    ('12 · 寿命篇',       ['三·Y']),
+    ('13 · 学历篇',       ['三·Z']),
+    ('14 · 职业篇·牢狱篇', ['三·W']),
+    ('16 · 实战技巧',     ['三·B', '三·C', '三·D', '三·E', '三·F']),
+    ('18 · 四墓库专项',   ['三·P']),
+    ('19 · 神煞断法',     ['三·O']),
 ]
-_TOPIC_OF = {t: name for name, ts in QUIZ_TOPICS for t in ts}
+
+
+def topic_of(group):
+    """题目所在的 `## 分组标题` → 它出自哪一册资料。"""
+    for name, keys in QUIZ_SOURCES:
+        for k in keys:
+            if group.startswith(k):
+                return name
+    return None
 
 
 def assign_topics(items):
-    """按主考点把每题归进一个主题；有没归上的直接报错，不许悄悄漏。"""
     miss = {}
     for it in items:
-        head = it['tags'][0] if it['tags'] else ''
-        name = _TOPIC_OF.get(head)
+        name = topic_of(it.get('group', ''))
         if not name:
-            miss.setdefault(head or '(无标签)', []).append(it['n'])
+            miss.setdefault(it.get('group', '(无)'), []).append(it['n'])
         it['topic'] = name or '未归类'
+        it.pop('group', None)
     if miss:
-        lines = ['✗ 这些主考点没写进 QUIZ_TOPICS，先决定它们归哪一组：']
-        for t, ns in sorted(miss.items(), key=lambda x: -len(x[1])):
-            lines.append('    %-12s %d 题（如题 %s）' % (t, len(ns), ns[0]))
+        lines = ['✗ 这些分组没登记进 QUIZ_SOURCES，先确认它们出自哪一册资料：']
+        for g, ns in sorted(miss.items(), key=lambda x: -len(x[1])):
+            lines.append('    %-34s %d 题（如题 %s）' % (g[:34], len(ns), ns[0]))
         sys.exit('\n'.join(lines))
     return [{'name': n, 'n': sum(1 for it in items if it['topic'] == n)}
-            for n, _ in QUIZ_TOPICS]
-
+            for n, _ in QUIZ_SOURCES]
 
 
 def build_quiz():
@@ -185,14 +198,21 @@ def build_quiz():
     blocks = re.split(r'\n(?=### 【题\d)', raw[first:])
 
     items = []
+    cur_group = '三、题库正文'      # 第一批题在 `## 三、题库正文` 之下（该标题在 first 之前）
     for b in blocks:
         m = re.match(r'### 【题(\d+)】(.*?)\n', b)
         if not m:
             continue
         seg = re.split(r'\n(?=##\s)', b)
         b = seg[0]                                   # 只保留题目本体
+        this_group = cur_group                       # 本题属于「它前面」那个分组
         if len(seg) > 1:
             intro += '\n\n' + '\n'.join(seg[1:])     # 分组标题/尾部章节收进说明
+            # 块尾带出的 ## 标题是**下一批**题的分组（可能连着好几个）
+            for x in seg[1:]:
+                mm = re.match(r'##\s+(.+)', x)
+                if mm:
+                    cur_group = mm.group(1).strip()
         num = int(m.group(1))
         head = m.group(2)
         tags = re.findall(r'`([^`]+)`', head)
@@ -253,6 +273,7 @@ def build_quiz():
             'chai': chai_html,
             'noAnswer': no_answer,
             'text': strip_md(b)[:600],
+            'group': this_group,
         })
 
     items.sort(key=lambda x: x['n'])
