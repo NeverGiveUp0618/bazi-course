@@ -507,7 +507,7 @@ RENDER.qlist = function () {
     var modes = [
       ['all', '全部 ' + Q.items.length],
       ['new', '没看过'],
-      ['star', '精读'],
+      ['star', '精读 ' + Q.items.filter(function (x) { return x.star > 0; }).length],
       ['chart', '有完整盘']
     ];
     $('#qFilters').innerHTML = modes.map(function (m) {
@@ -578,7 +578,7 @@ RENDER.qlist = function () {
           // ⚠️ 不显示题号：编号只是内容源里的锚点（build 分块、题间互相引用要用），
           //    列在界面上只会让人眼花——用户 2026-08-24 明确要求去掉。
           return '<div class="qrow" data-q="' + it.n + '">' +
-            '<span class="t">' + (it.star ? '⭐' : '') + esc(it.title) +
+            '<span class="t">' + (it.star ? '⭐'.repeat(Math.min(it.star, 3)) + ' ' : '') + esc(it.title) +
             (it.noAnswer ? ' <span class="pill g" style="font-size:10px">反推</span>' : '') + '</span>' +
             '<span class="s"><i class="dot ' + (seen[it.n] ? 'ok' : 'new') + '"></i></span></div>';
         }).join('') + '</div></div>';
