@@ -26,6 +26,7 @@ import io
 import json
 import os
 import re
+from html import unescape as _unescape
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -165,14 +166,44 @@ def check_qrefs(where, html, valid_q):
             err(where, f'题号链接指向不存在的第 {n} 题')
 
 
-def check_wiki(where, html, chapters, notes):
+def _titles(html):
+    """一篇文档里所有小标题的文本（h1–h6），供锚点校验做基准。
+    ⚠️ 不能用 build 出来的 toc——它只收 lv<=3，h4 标题会被误判成"不存在"。
+    ⚠️ 必须 unescape：html 里引号是 &quot;，而 md 原文是真引号，不还原就全对不上。"""
+    out = set()
+    for m in re.finditer(r'<h[1-6][^>]*>([\s\S]*?)</h[1-6]>', html):
+        t = re.sub(r'<[^>]+>', '', m.group(1))
+        out.add(_unescape(t).strip())
+    return out
+
+
+def check_wiki(where, html, chapters, notes, anc_nt=None, anc_ch=None):
     """wiki 链接的落点。app.js 的 gotoWiki 认不出的会退回搜索——不算错，
-    但指向明确不存在的章号/篇号就是错。"""
+    但指向明确不存在的章号/篇号就是错。
+    ⭐ 还要验 `[[某篇#某节]]` 里的**锚点**：改了节标题却忘了改引用，页面会跳到篇首，
+       表面看不出错（2026-08-25 笔记17 重写后，问题清单 18 处锚点全失效就是这么漏过去的）。"""
+    def _anchor(name, table, num, what):
+        if '#' not in name or table is None:
+            return
+        base, anc = _unescape(name).split('#', 1)
+        titles = table.get(num)
+        if titles is None:
+            return                     # 该篇没存 toc，跳过
+        anc = anc.strip()
+        if anc and anc not in titles:
+            err(where, f'wiki 锚点在《{base}》里不存在：#{anc[:24]}（{what}改过标题？）')
+
     for name in re.findall(r'class="wiki"[^>]*data-wiki="([^"]*)"', html):
         m = re.match(r'^八字(\d+)', name)
         if m and int(m.group(1)) not in notes:
             err(where, f'wiki 指向不存在的笔记 八字{m.group(1)}')
             continue
+        if m:
+            _anchor(name, anc_nt, int(m.group(1)), '笔记')
+            continue
+        m2 = re.match(r'^(\d+)-', name)
+        if m2:
+            _anchor(name, anc_ch, int(m2.group(1)), '教材')
         if re.search(r'问题清单|总目录|学习路线|命例题库', name):
             continue
         m = re.match(r'^第?\s*(\d+)\s*[章篇]', name)
@@ -200,7 +231,7 @@ def scan(where, html, ctx):
     check_empty(where, html)
     check_charts(where, html)
     check_qrefs(where, html, ctx['q'])
-    check_wiki(where, html, ctx['ch'], ctx['nt'])
+    check_wiki(where, html, ctx['ch'], ctx['nt'], ctx.get('anc_nt'), ctx.get('anc_ch'))
     check_inline_gz(where, html)
 
 
@@ -218,6 +249,11 @@ def main():
         'q': {i['n'] for i in quiz['items']},
         'ch': {c['n'] for c in course},
         'nt': {c['n'] for c in notes},
+        # ⭐ 每篇的标题集合，供 check_wiki 验「[[某篇#某节]]」里的锚点是否真存在。
+        #    2026-08-25 重写笔记17 时改了全部节标题，问题清单里 18 处锚点当场失效，
+        #    而当时 build/smoke/audit 全绿——就是因为没人验锚点。加上这层。
+        'anc_nt': {c['n']: _titles(c['html']) for c in notes},
+        'anc_ch': {c['n']: _titles(c['html']) for c in course},
     }
 
     for c in course:
@@ -283,7 +319,8 @@ def selftest():
     改了任何检查逻辑，先跑 `python3 audit.py --selftest`。
     """
     global errors, warns
-    ctx = {'q': {1, 2}, 'ch': {1, 2}, 'nt': {1, 2}}
+    ctx = {'q': {1, 2}, 'ch': {1, 2}, 'nt': {1, 2},
+           'anc_nt': {1: {'一、真有这一节'}}, 'anc_ch': {}}
     ok_chart = ('<div class="ichart"><div class="cols">' +
                 ''.join(f'<div class="c{" day" if p == "日" else ""}">'
                         f'<div class="p">{p}</div>'
@@ -313,6 +350,8 @@ def selftest():
          '<a class="qref" data-q="999">【999】</a>'),
         ('wiki 指向不存在的笔记',
          '<a class="wiki" data-wiki="八字99-无此篇">x</a>'),
+        ('wiki 锚点在该篇里不存在',
+         '<a class="wiki" data-wiki="八字1-某篇#根本没有这一节">x</a>'),
         ('wiki 指向不存在的章',
          '<a class="wiki" data-wiki="第99章">x</a>'),
     ]
