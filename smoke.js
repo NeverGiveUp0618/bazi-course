@@ -168,9 +168,15 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(shown.join('|') === Q.topics.map(t => t.name).join('|'), '组的顺序＝QUIZ_SOURCES');
     // ⭐ 用户 2026-08-24 定的三段顺序，锁住别再被"优化"回册号序
     ok(shown.slice(0, 3).join('|') === '初级班|中级班|高级班', '前三组＝初→中→高级班');
-    const noPian = shown.slice(3, 7), pian = shown.slice(7);
+    // ⚠️ 别再写死切片下标——2026-08-26 加「视频课实录」时中段变长，硬编码的 slice(3,7) 就假红了。
+    //    改成按「第一个带篇的组」切：前三组之后、首个带篇之前＝中段。
+    const firstPian = shown.findIndex(n => /篇$/.test(n));
+    const noPian = shown.slice(3, firstPian), pian = shown.slice(firstPian);
+    ok(firstPian > 3, '前三组之后还有不带「篇」的技巧/实录类');
     ok(noPian.every(n => !/篇$/.test(n)), '中段是不带「篇」的技巧类');
     ok(pian.every(n => /篇$/.test(n)) && pian.length === 10, '末段全是带「篇」的主题类（10 组）');
+    // ⭐ 视频课实录＝我自己的听课笔记（第 666-765 讲），是第四条成体系的主线课，紧跟三个班
+    ok(shown[3] === '视频课实录', '视频课实录紧跟在三个班之后');
     ok(shown.every(n => !/^\d/.test(n)), '组名不再带资料册号前缀');
     // 「三·W」是「三·W2」的前缀，若匹配顺序写错，牢狱篇会被职业篇整组吞掉
     ok(pick(310) === '职业篇' && pick(312) === '牢狱篇',
