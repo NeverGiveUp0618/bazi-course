@@ -225,6 +225,63 @@ def check_inline_gz(where, html):
 
 # ---------------------------------------------------------------- 主流程
 
+# ── 可推导的干支断言：禄位／长生位 ─────────────────────────
+# ⭐ 2026-08-26 加。起因：手工机检抓到 3 处硬错——
+#   「壬禄在子」（壬禄在亥，子是壬的羊刃）、「丙禄在寅」（丙禄在巳，寅是丙的长生）、
+#   「辛长生在酉」（酉是辛的禄）。这类断言【可由基准表推导】，就该让脚本盯着。
+# ⚠️ 标了「存疑/订正/照录」的行是**故意保留的原文口径异常**，必须放行，否则天天假红。
+LU = {'甲': '寅', '乙': '卯', '丙': '巳', '丁': '午', '戊': '巳',
+      '己': '午', '庚': '申', '辛': '酉', '壬': '亥', '癸': '子'}
+HALF_LU = {'丁': '未', '癸': '丑'}          # 半禄〔中级班 p25〕
+CS = {'甲': '亥', '丙': '寅', '戊': '寅', '庚': '巳', '壬': '申',
+      '乙': '午', '丁': '酉', '己': '酉', '辛': '子', '癸': '卯'}
+CS_WX = {'木': '亥', '火': '寅', '土': '寅', '金': '巳', '水': '申'}  # 不分阴阳的统一长生
+GAN_WX = {'甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土',
+          '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水'}
+_EXEMPT = ('存疑', '订正', '照录', '疑为', '应为', '不是禄', '假长生', '⚠️')
+
+
+def _line_of(text, pos):
+    """断言所在的那一行（用来判断有没有被标注豁免）。"""
+    a = text.rfind('\n', 0, pos) + 1
+    b = text.find('\n', pos)
+    return text[a: b if b > 0 else len(text)]
+
+
+def check_ganzhi_claims(where, html):
+    """禄位／长生位这类**可由基准表推导**的断言。"""
+    plain = re.sub(r'<[^>]+>', '', html)
+    for m in re.finditer(r'([甲乙丙丁戊己庚辛壬癸])\s*(?:的)?禄\s*(?:在|位?在)\s*([子丑寅卯辰巳午未申酉戌亥])', plain):
+        g, z = m.group(1), m.group(2)
+        if LU[g] == z or HALF_LU.get(g) == z:
+            continue
+        if any(k in _line_of(plain, m.start()) for k in _EXEMPT):
+            continue
+        err(where, f'禄位错：「{g}禄在{z}」应为 {g}禄在{LU[g]}')
+    for m in re.finditer(r'([甲乙丙丁戊己庚辛壬癸])\s*(?:的)?长生\s*(?:在|位?在)\s*([子丑寅卯辰巳午未申酉戌亥])', plain):
+        g, z = m.group(1), m.group(2)
+        if CS[g] == z or CS_WX[GAN_WX[g]] == z:
+            continue
+        if any(k in _line_of(plain, m.start()) for k in _EXEMPT):
+            continue
+        err(where, f'长生位错：「{g}长生在{z}」应为 {CS[g]}（或统一长生 {CS_WX[GAN_WX[g]]}）')
+
+
+def check_po(where, html):
+    """⚠️ 本体系「破」只有三组：子卯·卯午·午酉。
+    2026-08-26 订正过一处全站性混用——把传统六破的「子酉」写进了本体系口径。"""
+    plain = re.sub(r'<[^>]+>', '', html)
+    # ⚠️ 排除「…丑午 | 破坏力…」这类表格边界消失造成的误接
+    for m in re.finditer(r'([子丑寅卯辰巳午未申酉戌亥])\s*([子丑寅卯辰巳午未申酉戌亥])\s*相?破(?!坏)', plain):
+        pair = frozenset(m.group(1) + m.group(2))
+        if pair in ({frozenset('子卯'), frozenset('卯午'), frozenset('午酉')}):
+            continue
+        win = plain[max(0, m.start() - 120): m.end() + 120]
+        if any(k in win for k in _EXEMPT + ('传统', '六破', '另一套', '刑冲破害')):
+            continue
+        err(where, f'破的组别可疑：「{m.group(1)}{m.group(2)}破」——本体系破只有 子卯·卯午·午酉')
+
+
 def scan(where, html, ctx):
     check_markdown_residue(where, html)
     check_tag_balance(where, html)
@@ -233,6 +290,8 @@ def scan(where, html, ctx):
     check_qrefs(where, html, ctx['q'])
     check_wiki(where, html, ctx['ch'], ctx['nt'], ctx.get('anc_nt'), ctx.get('anc_ch'))
     check_inline_gz(where, html)
+    check_ganzhi_claims(where, html)
+    check_po(where, html)
 
 
 def main():
@@ -337,6 +396,11 @@ def selftest():
         ('标签不配平', '<div><p>少一个闭合</div>'),
         ('空代码块', '<pre><code></code></pre>'),
         ('空表格', '<table></table>'),
+        # ⭐ 2026-08-26 加：禄位／长生位／破的组别（都是可由基准表推导的断言）
+        ('禄位错', '<p>壬禄在子，故为通根</p>'),
+        ('长生位错', '<p>辛长生在酉</p>'),
+        ('破的组别错', '<p>子酉破，故不生</p>'),
+
         ('盘少一柱', ok_chart.replace(
             '<div class="c"><div class="p">时</div>'
             '<span class="a w-mu">乙</span><span class="b w-mu">卯</span></div>', '')),
@@ -376,7 +440,27 @@ def selftest():
     else:
         print('  ✓ 正常内容不误报')
 
-    print(f'\n{"✗ " + str(bad) + " 项检查是哑的" if bad else "✓ 全部检查项都真的会抓错"}')
+    # ⭐ 负向用例：这些【必须不报错】。
+    #   假红比漏报更难受——2026-08-26 加禄位/破的检查时，一上来就把
+    #   「传统六破引文」和表格里「丑午 | 破坏力」误接成错，全站假红 9 处。
+    negatives = [
+        ('标了存疑的原文口径异常', '<p>原文作「子酉破」，本站无此破，照录标存疑</p>'),
+        ('传统六破的引文', '<p>传统六破：子酉相破，丑辰相破，寅亥相破，未戌相破</p>'),
+        ('表格边界消失的「破坏力」', '<p>子未 · 卯辰 · 酉戌 · 丑午 破坏力最厉害</p>'),
+        ('半禄（丁见未·癸见丑）', '<p>丁禄在未为半禄，癸禄在丑亦然</p>'),
+        ('不分阴阳的统一长生', '<p>金统一长生在巳，故庚长生在巳</p>'),
+    ]
+    for name, html in negatives:
+        errors, warns = [], []
+        check_ganzhi_claims('负向', html)
+        check_po('负向', html)
+        if errors:
+            bad += 1
+            print(f'  ✗ {name} → ⚠️ 误报了：{errors[0][1]}')
+        else:
+            print(f'  ✓ {name} → 正确放行')
+
+    print(f'\n{"✗ " + str(bad) + " 项有问题" if bad else "✓ 全部检查项都真的会抓错，且不误报"}')
     return 1 if bad else 0
 
 
