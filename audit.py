@@ -418,6 +418,41 @@ def check_tags(quiz):
             warn('考点标签', f'`{t}` 用了 {len(ns)} 题，但「考点标签体系」表里没登记')
 
 
+# ── 反向链接：新内容别成孤岛（⭐ 2026-08-26 加）──────────────
+# 只有出链没有入链 = 读者从既有内容那边永远发现不了它。
+# 实测抓到：笔记18 除"问题清单"外无人引用（天地门三部曲里 17→19 有链、却没人链 18）；
+#          讲口诀/歌诀的 4 处都没指向新写的笔记21。
+# ⚠️ 不把「问题清单」算作入链——它链到所有笔记，算上就永远不会报。
+def check_backlinks(course, notes, quiz):
+    have_nt = {c['n'] for c in notes}
+    have_ch = {c['n'] for c in course}
+    in_nt = {n: set() for n in have_nt}
+    in_ch = {n: set() for n in have_ch}
+    srcs = ([(f'笔记{c["n"]}', c['html'], ('nt', c['n'])) for c in notes] +
+            [(f'第{c["n"]}章', c['html'], ('ch', c['n'])) for c in course] +
+            [('题库', (quiz.get('intro') or '') +
+              ''.join((it.get(k) or '') for it in quiz.get('items') or []
+                      for k in ('face', 'jie', 'chai')), (None, None))])
+    for name, html, self_id in srcs:
+        for m in re.finditer(r'data-wiki="([^"]+)"', html):
+            tgt = m.group(1).split('#')[0].split('|')[0].strip()
+            mn = re.match(r'八字(\d+)-', tgt)
+            mc = re.match(r'(\d+)-', tgt)
+            if mn and int(mn.group(1)) in have_nt:
+                if self_id != ('nt', int(mn.group(1))):
+                    in_nt[int(mn.group(1))].add(name)
+            elif mc and int(mc.group(1)) in have_ch:
+                if self_id != ('ch', int(mc.group(1))):
+                    in_ch[int(mc.group(1))].add(name)
+    for n, srcs_ in sorted(in_nt.items()):
+        if not srcs_:
+            warn('反向链接', f'笔记{n} 除问题清单外**没有任何入链**——'
+                             f'读者从别处发现不了它，该在相关章节加个指引')
+    for n, srcs_ in sorted(in_ch.items()):
+        if not srcs_:
+            warn('反向链接', f'第{n}章 没有任何入链')
+
+
 def scan(where, html, ctx):
     check_markdown_residue(where, html)
     check_tag_balance(where, html)
@@ -465,6 +500,7 @@ def main():
     scan('问题清单', index or '', ctx)
 
     check_tags(quiz)
+    check_backlinks(course, notes, quiz)
 
     # 首屏包不该再长胖——问题清单曾把它撑到 124KB
     meta_kb = os.path.getsize(os.path.join(DATA, 'data-meta.js')) / 1024
@@ -599,6 +635,28 @@ def selftest():
     else:
         bad += 1
         print('  ✗ 标签·未登记 → 没报！这项检查是哑的')
+
+    # ── 反向链接：孤岛必须报 ──
+    errors, warns = [], []
+    check_backlinks(
+        course=[{'n': 1, 'html': '<a data-wiki="八字01-甲">x</a>'}],
+        notes=[{'n': 1, 'html': ''}, {'n': 18, 'html': '<a data-wiki="八字01-甲">x</a>'}],
+        quiz={'intro': '', 'items': []})
+    if any('笔记18' in w for w in warns):
+        print('  ✓ 反向链接·孤岛 → 笔记18 无入链被抓到')
+    else:
+        bad += 1
+        print('  ✗ 反向链接·孤岛 → 没报！这项检查是哑的')
+    errors, warns = [], []
+    check_backlinks(
+        course=[{'n': 1, 'html': '<a data-wiki="八字18-乙">x</a>'}],
+        notes=[{'n': 18, 'html': ''}],
+        quiz={'intro': '', 'items': []})
+    if any('笔记18' in w for w in warns):
+        bad += 1
+        print('  ✗ 反向链接·有入链却报了 → 误报')
+    else:
+        print('  ✓ 反向链接·有入链正确放行')
 
     # ⭐ 负向用例：这些【必须不报错】。
     #   假红比漏报更难受——2026-08-26 加禄位/破的检查时，一上来就把
