@@ -387,6 +387,37 @@ def check_po(where, html):
         err(where, f'破的组别可疑：「{m.group(1)}{m.group(2)}破」——本体系破只有 子卯·卯午·午酉')
 
 
+# ── 考点标签的一致性（⭐ 2026-08-26 加）─────────────────────
+# App 的筛选条全靠 tags。同义标签会把筛选切碎：
+# 实测——既有用 `学历`、新题用 `学业`；既有 `入手四步`、新题 `入手`。
+# 读者点「学业」只筛到一半，另一半藏在「学历」里，且没人会想到去点。
+_SYNONYM = [           # 每组只许留一个；留的是第一个
+    ('学业', '学历', '文凭'),
+    ('入手', '入手四步', '入手三步'),
+    ('制/做功', '做功', '制'),
+    ('墓库', '库', '入墓'),
+    ('六亲', '亲属'),
+]
+
+
+def check_tags(quiz):
+    used = {}
+    for it in quiz.get('items') or []:
+        for t in it.get('tags') or []:
+            used.setdefault(t, []).append(it['n'])
+    for group in _SYNONYM:
+        hit = [t for t in group if t in used]
+        if len(hit) > 1:
+            others = '、'.join(f'`{t}`(题{used[t][0]}等{len(used[t])}题)' for t in hit[1:])
+            err('考点标签', f'同义标签并存，筛选会被切碎：应统一为 `{hit[0]}`，但还有 {others}')
+    # ⚠️ 标签体系表在【题库自己的 intro】里（build 把首尾章节都收进 intro），
+    #    别去问题清单/教材总目录里找——第一版就找错了地方，假红 25 条。
+    intro = quiz.get('intro') or ''
+    for t, ns in sorted(used.items(), key=lambda x: -len(x[1])):
+        if len(ns) >= 5 and f'<code>{t}</code>' not in intro and f'`{t}`' not in intro:
+            warn('考点标签', f'`{t}` 用了 {len(ns)} 题，但「考点标签体系」表里没登记')
+
+
 def scan(where, html, ctx):
     check_markdown_residue(where, html)
     check_tag_balance(where, html)
@@ -432,6 +463,8 @@ def main():
                 scan(f'题{it["n"]}·{label}', it[part], ctx)
     scan('学习路线', meta.get('outline', ''), ctx)
     scan('问题清单', index or '', ctx)
+
+    check_tags(quiz)
 
     # 首屏包不该再长胖——问题清单曾把它撑到 124KB
     meta_kb = os.path.getsize(os.path.join(DATA, 'data-meta.js')) / 1024
@@ -550,6 +583,22 @@ def selftest():
         bad += 1
     else:
         print('  ✓ 正常内容不误报')
+
+    # ── 考点标签：同义并存必须报错 ──
+    errors, warns = [], []
+    check_tags({'items': [{'n': 1, 'tags': ['学业']}, {'n': 2, 'tags': ['学历']}], 'intro': ''})
+    if errors:
+        print(f"  ✓ 标签·同义并存 → {errors[0].split(chr(65372), 1)[1][:56]}")
+    else:
+        bad += 1
+        print('  ✗ 标签·同义并存 → 没报错！这项检查是哑的')
+    errors, warns = [], []
+    check_tags({'items': [{'n': i, 'tags': ['学业']} for i in range(9)], 'intro': ''})
+    if warns:
+        print(f"  ✓ 标签·未登记 → {warns[0].split(chr(65372), 1)[1][:56]}")
+    else:
+        bad += 1
+        print('  ✗ 标签·未登记 → 没报！这项检查是哑的')
 
     # ⭐ 负向用例：这些【必须不报错】。
     #   假红比漏报更难受——2026-08-26 加禄位/破的检查时，一上来就把
