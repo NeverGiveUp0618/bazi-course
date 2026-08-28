@@ -382,7 +382,9 @@ def check_po(where, html):
         if pair in ({frozenset('子卯'), frozenset('卯午'), frozenset('午酉')}):
             continue
         win = plain[max(0, m.start() - 120): m.end() + 120]
-        if any(k in win for k in _EXEMPT + ('传统', '六破', '另一套', '刑冲破害')):
+        # ⭐ 2026-08-28 加 '原书'：教材07 六节里照录了原书自己列的四组
+        #    （p40列四组 → p41明文否定 → p48序章又列），是有意引用，不是口径错。
+        if any(k in win for k in _EXEMPT + ('传统', '六破', '另一套', '刑冲破害', '原书')):
             continue
         err(where, f'破的组别可疑：「{m.group(1)}{m.group(2)}破」——本体系破只有 子卯·卯午·午酉')
 
