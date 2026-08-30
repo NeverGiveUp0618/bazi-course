@@ -476,6 +476,13 @@ function gotoWiki(name) {
   if (m) { show('note', +m[1], find); return; }
   m = /题\s*(\d+)/.exec(name);
   if (m) { show('quiz', +m[1], find); return; }
+  /* ⭐ 教材章节按文件名写法链接：「07-作用方式总论#六、破」「实用八字教材/05-十神」。
+     2026-08-30 全量核查时实测：这类链接（站里 229 处，问题清单里最密）全都掉进
+     下面的 fallback，落到搜索页——搜的还是「07-作用方式总论」这种正文里根本不出现的串，
+     锚点也一并丢掉。内容侧一直是这么写的（audit.py 的 check_wiki 早就按 ^(\d+)- 认它），
+     是这里没跟上。整页目标已在上面 return，所以放这儿不会误吞 00-/99- 那几篇。*/
+  m = /(?:^|\/)(\d{1,2})-/.exec(name);
+  if (m) { show('chapter', +m[1], find); return; }
   m = /第?\s*(\d+)\s*[章篇]/.exec(name);
   if (m) { show('chapter', +m[1], find); return; }
   show('search', null);

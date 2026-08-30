@@ -455,6 +455,57 @@ def check_backlinks(course, notes, quiz):
             warn('反向链接', f'第{n}章 没有任何入链')
 
 
+# ── 红线词：师承代号与禁用词（⭐ 2026-08-30 加）──────────────────
+# 体系保密：任何产出里只用「大任」「小任」，不出现真实姓名（见记忆 reference_bazi_sources）。
+# 「视频」二字全站已改为「v课」，回填新资料时最容易带回来。
+# 实测：一次全量核查抓到 2 处真名（引原书扉页时带进来的）。
+BANNED = [('任付红', '真实姓名——只能写「大任」'), ('视频', '全站禁用，写「v课」')]
+
+
+def check_banned(where, html):
+    txt = strip_pre(html)
+    for word, why in BANNED:
+        if word in txt:
+            err(where, f'出现禁用词「{word}」：{why}')
+
+
+# ── 题引用点不点得动（⭐ 2026-08-30 加）────────────────────────
+# mdlite 只把**严格的**【题N】转成 a.qref；【题247-250】【题35 命A/命B】这种
+# 带后缀的整串只渲染成 <em class="hl">，读者点不动。
+# 实测抓到 17 处（区间 8、并列 1、后缀 8）。写法应改成【题247】–【题250】。
+_HL_Q = re.compile(r'<em class="hl">题\s*\d+[^<]*</em>')
+
+
+def check_qref_clickable(where, html):
+    for m in _HL_Q.finditer(html):
+        t = re.sub(r'<[^>]+>', '', m.group(0))
+        err(where, f'题引用点不动（不是严格的【题N】）：{t[:28]}')
+
+
+# ── wiki 链接跳不跳得到（⭐ 2026-08-30 加）──────────────────────
+# check_wiki 只验「指向的章/篇存不存在」，不验「点了会落到哪」。
+# 2026-08-30 在 jsdom 里实测：`[[07-作用方式总论#六、破]]` 这类按文件名写的教材链接
+# **全部掉进 gotoWiki 的 fallback**，落到搜索页且锚点丢失——站里有 229 处。
+# 已在 app.js 补了 /(?:^|\/)(\d{1,2})-/ 规则；这里把规则复刻一份守着，防再退化。
+def _wiki_route(name):
+    """复刻 app.js gotoWiki 的判定顺序，返回落点类型。"""
+    if re.search(r'问题清单', name): return 'index'
+    if re.search(r'总目录|学习路线', name): return 'outline'
+    if re.search(r'命例题库', name): return 'qlist'
+    if re.search(r'八字\d+', name): return 'note'
+    if re.search(r'题\s*\d+', name): return 'quiz'
+    if re.search(r'(?:^|/)\d{1,2}-', name): return 'chapter'
+    if re.search(r'第?\s*\d+\s*[章篇]', name): return 'chapter'
+    return 'search'
+
+
+def check_wiki_route(where, html):
+    for name in re.findall(r'class="wiki"[^>]*data-wiki="([^"]*)"', html):
+        n = _unescape(name).split('#', 1)[0]
+        if _wiki_route(n) == 'search':
+            err(where, f'wiki 链接点了不直达、会退回搜索：[[{n[:30]}]]')
+
+
 def scan(where, html, ctx):
     check_markdown_residue(where, html)
     check_tag_balance(where, html)
@@ -467,6 +518,9 @@ def scan(where, html, ctx):
     check_po(where, html)
     check_shishen(where, html)
     check_pairs(where, html)
+    check_banned(where, html)
+    check_qref_clickable(where, html)
+    check_wiki_route(where, html)
 
 
 def main():

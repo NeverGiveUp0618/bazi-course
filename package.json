@@ -8,7 +8,8 @@
     "test": "node smoke.js",
     "audit": "python3 audit.py",
     "audit:self": "python3 audit.py --selftest",
-    "all": "python3 build.py && node smoke.js && python3 audit.py"
+    "all": "python3 build.py && node smoke.js && python3 audit.py",
+    "cite": "python3 _verify_cite.py"
   },
   "devDependencies": {
     "jsdom": "^24.1.3"
