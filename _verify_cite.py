@@ -11,8 +11,11 @@
   3. 站内引文常用「……」把原文几段接起来 ⇒ 按省略号切开，任一段命中即算命中。
 
 跑法：`python3 _verify_cite.py`（需要本机有 民八字/大任老资料，缺了就跳过）
-2026-08-30 基线：可核 467 处 → 精确命中 444（95%）、页码可能偏移 11、需回原书确认 12。
-那 23 处已登记在 content/00-问题清单.md 的「待查／存疑」里，**别当成新问题重复排查**。
+⭐ **页码口径（用户 2026-08-30 裁定）：一律按 PDF 文件页序**——原书页脚印的页码与 PDF 页序
+   偏移不固定（+1~+5 都出现过），所以只认文件页序。
+
+2026-08-30 基线：**可核 464 处，页码偏移 0、检索不到 0**（全清）。
+再跑若报出东西，就是**真的新问题**——不是已知项。
 """
 
 import io, os, re, glob, sys, collections
@@ -49,7 +52,10 @@ def pagetext_wide(pdf, n):
         except Exception: return None
         _cache[("doc",pdf)]=d
     return norm("".join(d[i].get_text() for i in range(max(0,n-7), min(d.page_count,n+6))))
-def norm(t): return re.sub(r'[\s*`~＊·・，,。、；;：:！!？?"“”「」『』（）()【】\-–—…⭐⚠️？]', '', t)
+def norm(t):
+    # ⭐ 只留汉字/数字/字母：站内引文里会混进 →、⭐、加粗号、破折号，
+    #    早先的黑名单式清洗漏掉「→」，害得一条本来对得上的引文报成找不到。
+    return re.sub(r'[^\u4e00-\u9fff0-9A-Za-z]', '', t)
 def pagetext(pdf, n):
     key=(pdf,n)
     if key in _cache: return _cache[key]
@@ -77,6 +83,16 @@ for f in sorted(glob.glob(os.path.join(CONTENT,"**","*.md"), recursive=True)):
         m=SRC.search(ln)
         if not m: continue
         who=m.group(1); page=int(m.group(2))
+        # 〔… p11-12〕〔… p17 大运歌、p41、p53〕——整段里出现的页码都算数
+        seg_all=ln[m.start():]
+        seg_all=seg_all[:seg_all.find('〕')+1] if '〕' in seg_all else seg_all
+        pages=[int(x) for x in re.findall(r'p\s*(\d+)', seg_all)] or [page]
+        # 〔… p7–9〕这种区间要展开，否则中间几页取不到
+        for a,b in re.findall(r'p\s*(\d+)\s*[-–~]\s*(\d+)', seg_all):
+            pages += list(range(int(a), int(b)+1))
+        pages=sorted(set(pages))
+        # ⚠️ 只核大任那 22 册（本机有 PDF）；小任的资料另有出处体系，别硬套到大任的书上
+        if '小任' in who: continue
         pdf=None
         for k,v in MAP.items():
             if k in who: pdf=v; break
@@ -90,22 +106,30 @@ for f in sorted(glob.glob(os.path.join(CONTENT,"**","*.md"), recursive=True)):
         while j>=0 and lines[j].lstrip().startswith('>'):
             blk.append(lines[j]); j-=1
         if not blk: continue
-        cand=[]
-        for b in blk:
-            cand += re.findall(r'[「『]([^」』\n]{10,})[」』]', b)
+        # ⭐ 就近配对：一行里常有「引文A」〔出处A〕「引文B」〔出处B〕，
+        #    取块内最长的那条必然张冠李戴（实测 10 条假红里 5 条是这么来的）。
+        #    先在出处标记【之前】的同行文字里找，找不到再往上一行找最后一条。
+        cand=re.findall(r'[「『]([^」』\n]{10,})[」』]', ln[:m.start()])
+        if not cand:
+            for b in blk[1:] if blk and blk[0] is ln else blk:
+                c2=re.findall(r'[「『]([^」』\n]{10,})[」』]', b)
+                if c2: cand=[c2[-1]]; break
         if not cand: continue
-        quote=max(cand,key=len)
+        quote=cand[-1]
+        # 站里有少量「」包的是**我方设问/归纳**，不是原文——标了就放行
+        if re.search(r'我的提问|非原文|我的归纳|我的重建|我的凑法', "".join(blk)): continue
         tot+=1
-        pt=pagetext(pdf,page)
-        if pt is None or len(pt)<50: skip+=1; continue
+        pt="".join(filter(None,(pagetext(pdf,x) for x in pages)))
+        if not pt or len(pt)<50: skip+=1; continue
         # ⚠️ 站内引文常用「……」把原文的几段接起来，整串当指纹必然失配。
         #    按省略号切开，任一段命中即算命中。
         segs=[norm(x) for x in re.split(r'…+|\.{3,}|\s*\(略\)\s*', quote)]
         segs=[x for x in segs if len(x)>=8]
         ok=False
         for seg in segs or [norm(quote)]:
-            for L in (16,12,9):
-                if len(seg)>=L and seg[:L] in pt: ok=True; break
+            # ⚠️ 短引文（「卯申互绝路途伤」才 7 字）在只试 16/12/9 时永远判不出命中
+            for L in (16,12,9,len(seg)):
+                if len(seg)>=max(5,L) and seg[:L] in pt: ok=True; break
             if ok: break
         # 页码口径不一：少数按原书印刷页（比 PDF 序号小 2–5），再放宽一次窗口
         if not ok:
