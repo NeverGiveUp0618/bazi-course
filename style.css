@@ -533,3 +533,33 @@ html.wst-frame-guard .toast{bottom:calc(58px + 12px)}
 /* 命例列表的连续序号（1…375，按组顺序排）——定宽右对齐，标题才不会参差 */
 .qrow .qn{flex:0 0 auto;min-width:2.4em;text-align:right;margin-right:8px;
   font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums}
+
+/* ===== 断命台：断盘时边看边勾，所以要「一眼扫得完」＋「点得准」 ===== */
+.desk-entry{border:1px solid var(--indigo);background:linear-gradient(180deg,rgba(99,102,241,.07),transparent)}
+.dstep{margin:14px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.dstep>.dhd{display:flex;align-items:center;gap:10px;padding:11px 13px;background:var(--card);cursor:pointer}
+.dstep .dno{flex:none;min-width:26px;height:26px;line-height:26px;text-align:center;border-radius:8px;
+  background:var(--indigo);color:#fff;font-size:13px;font-weight:700}
+.dstep .dti{flex:1;font-size:15px;font-weight:700}
+.dstep .dct{flex:none;font-size:12px;color:var(--ink3)}
+.dstep.done .dno{background:#16a34a}
+.dstep .dask{padding:9px 13px 2px;font-size:13px;color:var(--ink2);line-height:1.7}
+.dstep ul{list-style:none;margin:0;padding:6px 13px 12px}
+.dstep li{display:flex;gap:9px;align-items:flex-start;padding:7px 0;font-size:14px;line-height:1.75;
+  border-top:1px dashed var(--line)}
+.dstep li:first-child{border-top:0}
+.dstep li.red{background:linear-gradient(90deg,rgba(220,38,38,.09),transparent);
+  margin:0 -13px;padding:7px 13px;border-left:3px solid #dc2626}
+.dbox{flex:none;width:20px;height:20px;margin-top:2px;border:2px solid var(--ink3);border-radius:6px;
+  cursor:pointer;position:relative}
+.dbox.on{background:var(--indigo);border-color:var(--indigo)}
+.dbox.on::after{content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+li.red .dbox.on{background:#dc2626;border-color:#dc2626}
+.dtxt{flex:1;cursor:pointer}
+.dbar{display:flex;gap:8px;align-items:center;margin:4px 0 10px}
+.dbar input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:9px;
+  background:var(--bg2);color:var(--ink);font-size:14px}
+.dwarn{margin:12px 0;padding:11px 13px;border-radius:11px;border:1px solid #dc2626;
+  background:rgba(220,38,38,.07);font-size:13.5px;line-height:1.85}
+

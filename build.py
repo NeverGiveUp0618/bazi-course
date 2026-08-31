@@ -353,6 +353,47 @@ def collect(dirpath, pattern, kind):
     return build_docs(out, kind)
 
 
+def _inline(text):
+    """只要行内那一层（加粗／wiki／【题N】／干支上色），不要外面的 <p>。"""
+    h = md2html(text, heading_offset=0).strip()
+    m = re.fullmatch(r'<p>([\s\S]*)</p>', h)
+    return m.group(1) if m else h
+
+
+def build_desk():
+    """断命台：把 content/断命台.md 解析成逐步检查清单。
+
+    源里的写法（刻意做得极简，方便随时增删条目）：
+        ## 0 · 摆正立场      → 一步
+        紧随的普通行          → 这一步的「一句话过关」
+        - 条目               → 普通检查项
+        !! 条目              → ⭐ 红线（漏了结论就全错），前端标红
+        @ 目标               → 这一步回哪一章（wiki 名）
+    """
+    src = read(os.path.join(SRC, '断命台.md'))
+    steps, cur = [], None
+    for raw in src.split('\n'):
+        line = raw.rstrip()
+        m = re.match(r'^##\s+(\S+)\s*·\s*(.+)$', line)
+        if m:
+            cur = {'n': m.group(1), 'title': m.group(2).strip(), 'ask': '', 'items': [], 'link': ''}
+            steps.append(cur)
+            continue
+        if cur is None or not line.strip():
+            continue
+        if line.startswith('@ '):
+            cur['link'] = line[2:].strip()
+        elif line.startswith('!! '):
+            cur['items'].append({'t': _inline(line[3:].strip()), 'red': 1})
+        elif line.startswith('- '):
+            cur['items'].append({'t': _inline(line[2:].strip()), 'red': 0})
+        elif not cur['ask']:
+            cur['ask'] = _inline(line.strip())
+    # 顶部说明（第一个 ## 之前的引用块）
+    intro = md2html(src.split('## ')[0], heading_offset=0)
+    return {'intro': intro, 'steps': steps}
+
+
 def main():
     if not os.path.isdir(SRC):
         sys.exit(f'找不到内容源目录：{SRC}')
@@ -363,6 +404,7 @@ def main():
     notes = collect(SRC, r'^八字(\d\d)-(.+)\.md$', 'n')
 
     index_md = read(os.path.join(SRC, '00-问题清单.md'))
+    desk = build_desk()
     outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
 
     meta = {
@@ -387,6 +429,8 @@ def main():
         ('data-index.js', write_js('data-index.js', 'DATA_INDEX',
                                    md2html(index_md, heading_offset=0))),
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
+        # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
+        ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
     ]
 
     print('== 构建完成 ==')

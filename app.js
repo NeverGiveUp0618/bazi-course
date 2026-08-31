@@ -34,7 +34,10 @@ var K = {
   // 我的笔记：用户自己划的句子。⚠️ 与内容里那 14 篇「笔记」是两回事，
   // UI 上一律叫「我的笔记」，别混。
   notes: 'bazi_course_mynotes',
-  theme: 'bazi_course_theme'
+  theme: 'bazi_course_theme',
+  // 断命台：当前这一盘勾到哪儿了。{name:'辛未辛丑乙巳丁丑', done:{'7-3':1}}
+  // ⚠️ 只存一盘——断命台是「手边的工具」不是「档案」，换盘就清空重来
+  desk: 'bazi_course_desk'
 };
 function ls(k, d) {
   try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }
@@ -68,6 +71,8 @@ var needNotes  = function () { return need('data-notes.js', 'DATA_NOTES'); };
 var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
 // 问题清单 70KB，只有点进「四张索引表」才要，不进首屏包
 var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
+// 断命台 8KB，只有点进「断命台」才要
+var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 
 /* ============================ 路由 ============================
  * 套壳(view.html)里 iframe 与顶层共享同一条 session history。
@@ -82,7 +87,7 @@ var cur = { scr: 'home', id: null };
 var TITLES = {
   home: '命理精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
   note: '', index: '问题清单', outline: '学习路线', qlist: '命例题库',
-  quiz: '', search: '搜索', mynotes: '我的笔记'
+  quiz: '', search: '搜索', mynotes: '我的笔记', desk: '断命台'
 };
 var ROOTS = { home: 1, course: 1, notes: 1, qlist: 1 };
 
@@ -435,6 +440,94 @@ RENDER.index = function () {
     afterDoc(box, 'index');
   });
 };
+/* ============================ 断命台 ============================
+ * 教材是用来读的，这一屏是断盘时摊在手边用的：13 步逐项勾，勾漏的红线会在底部点名。
+ * ⚠️ 设计上刻意只存「当前这一盘」——它是工具不是档案，换盘就清空，
+ *    否则上一盘的勾会误导下一盘（比这个多存几盘的价值高得多）。
+ */
+function deskState() { return ls(K.desk, { name: '', done: {} }); }
+
+RENDER.desk = function () {
+  var box = $('#deskBody');
+  box.innerHTML = '<div class="empty">载入中…</div>';
+  needDesk().then(function (d) {
+    var S = deskState(), done = S.done || {};
+    var total = 0, got = 0, missRed = [];
+    d.steps.forEach(function (st, si) {
+      st.items.forEach(function (it, ii) {
+        total++;
+        if (done[si + '-' + ii]) got++;
+        else if (it.red) missRed.push({ n: st.n, t: it.t });
+      });
+    });
+
+    var head =
+      '<div class="dbar">' +
+      '<input id="deskName" placeholder="这一盘（可写四柱，便于自己认）" value="' +
+      esc(S.name || '') + '">' +
+      '<button class="btn" id="deskReset">换一盘</button></div>' +
+      '<div class="row spread" style="margin-bottom:6px">' +
+      '<span class="muted">已勾 <b>' + got + '</b> / ' + total + ' 项</span>' +
+      '<span class="muted">红线未勾 <b style="color:#dc2626">' + missRed.length + '</b> 条</span></div>' +
+      '<div class="bar"><i style="width:' + (total ? Math.round(got * 100 / total) : 0) + '%"></i></div>';
+
+    var body = d.steps.map(function (st, si) {
+      var n = st.items.length, k = 0;
+      var lis = st.items.map(function (it, ii) {
+        var on = !!done[si + '-' + ii];
+        if (on) k++;
+        return '<li class="' + (it.red ? 'red' : '') + '" data-k="' + si + '-' + ii + '">' +
+          '<span class="dbox' + (on ? ' on' : '') + '"></span>' +
+          '<span class="dtxt">' + (it.red ? '⚠️ ' : '') + it.t + '</span></li>';
+      }).join('');
+      return '<div class="dstep' + (k === n ? ' done' : '') + '">' +
+        '<div class="dhd"><span class="dno">' + esc(st.n) + '</span>' +
+        '<span class="dti">' + esc(st.title) + '</span>' +
+        '<span class="dct">' + k + '/' + n + '</span></div>' +
+        (st.ask ? '<div class="dask">' + st.ask + '</div>' : '') +
+        '<ul>' + lis + '</ul>' +
+        (st.link ? '<div style="padding:0 13px 12px"><a class="wiki" data-wiki="' +
+          esc(st.link) + '">📖 回 ' + esc(st.link.replace(/^\d+-/, '')) + '</a></div>' : '') +
+        '</div>';
+    }).join('');
+
+    var warn = missRed.length
+      ? '<div class="dwarn"><b>⚠️ 还有 ' + missRed.length + ' 条红线没过</b>——' +
+        '这几条漏一条，断出来的结论就可能整个反过来：<br>' +
+        missRed.map(function (m) {
+          return '<b>第' + esc(m.n) + '步</b> · ' + m.t.replace(/<[^>]+>/g, '').slice(0, 40) + '…';
+        }).join('<br>') + '</div>'
+      : '<div class="dwarn" style="border-color:#16a34a;background:rgba(22,163,74,.07)">' +
+        '<b>✅ 红线全过了。</b>剩下的就是把话说清楚——回第12步看怎么出语。</div>';
+
+    box.innerHTML = (d.intro || '') + head + body + warn;
+    bindDoc(box);
+
+    // 勾选：整行都可点（手机上 20px 的方框太难点）
+    $$('.dstep li', box).forEach(function (li) {
+      li.onclick = function () {
+        var st = deskState(); st.done = st.done || {};
+        var key = li.dataset.k;
+        if (st.done[key]) delete st.done[key]; else st.done[key] = 1;
+        save(K.desk, st);
+        RENDER.desk();
+      };
+    });
+    var nameEl = $('#deskName');
+    if (nameEl) nameEl.onchange = function () {
+      var st = deskState(); st.name = nameEl.value.slice(0, 40); save(K.desk, st);
+    };
+    var rs = $('#deskReset');
+    if (rs) rs.onclick = function () {
+      if (!confirm('清空当前这一盘的勾选，重新开始？')) return;
+      save(K.desk, { name: '', done: {} });
+      RENDER.desk();
+    };
+  }).catch(function () {
+    box.innerHTML = '<div class="empty">断命台加载失败，检查网络后重试</div>';
+  });
+};
+
 RENDER.outline = function () {
   $('#outlineBody').innerHTML = META.outline || '';
   bindDoc($('#outlineBody'));

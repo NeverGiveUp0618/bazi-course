@@ -555,6 +555,17 @@ def main():
     scan('学习路线', meta.get('outline', ''), ctx)
     scan('问题清单', index or '', ctx)
 
+    # 断命台：它是断盘时真会照着做的清单，链接指错等于把人送错章
+    desk = load('data-desk.js', 'DATA_DESK')
+    desk_html = (desk.get('intro') or '') + ''.join(
+        ('<p>%s</p>' % it['t']) for st in desk['steps'] for it in st['items'])
+    scan('断命台', desk_html, ctx)
+    for st in desk['steps']:
+        if st.get('link') and _wiki_route(st['link']) == 'search':
+            err('断命台', f'第{st["n"]}步的「回哪一章」点了不直达：{st["link"]}')
+        if not st['items']:
+            err('断命台', f'第{st["n"]}步一个检查项都没有')
+
     check_tags(quiz)
     check_backlinks(course, notes, quiz)
 

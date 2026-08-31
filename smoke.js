@@ -23,6 +23,7 @@ run('data/data-course.js');
 run('data/data-notes.js');
 run('data/data-quiz.js');
 run('data/data-index.js');
+run('data/data-desk.js');
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -588,6 +589,30 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   marks.push(readMark());
   for (var ti = 0; ti < 3; ti++) { bt.click(); marks.push(readMark()); }
   ok(marks.join(' ') === '随0 阴1 阳1 随0', '主题键三态字随状态换：' + marks.join(' → '));
+
+  console.log('\n— 断命台（断盘时的检查清单）—');
+  $('[data-go="desk"]').click(); await wait();
+  ok($('#s-desk').classList.contains('active'), '首页入口能进断命台');
+  const steps = D.querySelectorAll('#deskBody .dstep');
+  ok(steps.length >= 13, '13 步全渲染，实为 ' + steps.length + ' 步');
+  const reds = D.querySelectorAll('#deskBody li.red');
+  ok(reds.length >= 8, '红线条目标出来了，共 ' + reds.length + ' 条');
+  ok($('#deskBody .dwarn').textContent.includes('红线没过'), '未勾完时底部点名还差哪几条红线');
+  // 勾一条：状态要落盘，重渲染后仍在
+  const firstLi = D.querySelector('#deskBody .dstep li');
+  firstLi.click(); await wait();
+  ok(D.querySelector('#deskBody .dstep .dbox').classList.contains('on'), '点整行即可勾选');
+  ok(window.eval("JSON.parse(localStorage.getItem('bazi_course_desk')).done['0-0']") === 1,
+     '勾选已存进 localStorage');
+  // 离开再回来（比直接调 RENDER 更接近真实用法）
+  D.querySelector('[data-tab="home"]').click(); await wait();
+  $('[data-go="desk"]').click(); await wait();
+  ok(D.querySelector('#deskBody .dstep .dbox').classList.contains('on'), '离开再回来，勾选还在');
+  // 换一盘要能清空
+  window.confirm = () => true;
+  $('#deskReset').click(); await wait();
+  ok(!D.querySelector('#deskBody .dstep .dbox').classList.contains('on'), '「换一盘」清空勾选');
+  ok(D.querySelector('#deskBody a.wiki'), '每步都给了回对应章节的链接');
 
   console.log('\n— 主题 —');
   $('#btnTheme').click();
