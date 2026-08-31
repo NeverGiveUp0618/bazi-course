@@ -600,8 +600,21 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok($('#deskBody .dwarn').textContent.includes('红线没过'), '未勾完时底部点名还差哪几条红线');
   // 勾一条：状态要落盘，重渲染后仍在
   const firstLi = D.querySelector('#deskBody .dstep li');
+  const gotBefore = Number($('#deskGot').textContent);
   firstLi.click(); await wait();
   ok(D.querySelector('#deskBody .dstep .dbox').classList.contains('on'), '点整行即可勾选');
+  // ⚠️ 断盘时人正勾在第 11 步，整屏重渲染会把滚动位置弹回顶部——这条锁住"只做局部更新"
+  ok(D.querySelector('#deskBody .dstep li') === firstLi,
+     '勾选只局部更新，没重建 DOM（否则手机上一勾就弹回顶部）');
+  ok(Number($('#deskGot').textContent) === gotBefore + 1, '顶部已勾计数跟着走');
+  ok(!$('#deskBody').innerHTML.includes('<h1'), '正文里没有与顶栏重复的大标题');
+  // 点条目里的章节链接，不该被当成勾选
+  const stepWithLink = D.querySelectorAll('#deskBody .dstep')[1];
+  const cntBefore = Number($('#deskGot').textContent);
+  stepWithLink.querySelector('a.wiki').click(); await wait();
+  D.querySelector('[data-tab="home"]').click(); await wait();
+  $('[data-go="desk"]').click(); await wait();
+  ok(Number($('#deskGot').textContent) === cntBefore, '点章节链接不会误勾选');
   ok(window.eval("JSON.parse(localStorage.getItem('bazi_course_desk')).done['0-0']") === 1,
      '勾选已存进 localStorage');
   // 离开再回来（比直接调 RENDER 更接近真实用法）

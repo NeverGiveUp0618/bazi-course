@@ -447,6 +447,44 @@ RENDER.index = function () {
  */
 function deskState() { return ls(K.desk, { name: '', done: {} }); }
 
+/* 勾选后只刷新「数字」那几处：每步的 k/n、顶部总计、进度条、底部红线点名。
+   ⚠️ 别顺手改成重渲染——见下面 onclick 里的注释。 */
+function refreshDeskCounts(box, d) {
+  var done = deskState().done || {};
+  var total = 0, got = 0, missRed = [];
+  d.steps.forEach(function (st, si) {
+    var k = 0;
+    st.items.forEach(function (it, ii) {
+      total++;
+      if (done[si + '-' + ii]) { got++; k++; }
+      else if (it.red) missRed.push({ n: st.n, t: it.t });
+    });
+    var el = $$('.dstep', box)[si];
+    if (!el) return;
+    el.classList.toggle('done', k === st.items.length);
+    var ct = el.querySelector('.dct');
+    if (ct) ct.textContent = k + '/' + st.items.length;
+  });
+  var g = $('#deskGot'); if (g) g.textContent = got;
+  var r = $('#deskRed'); if (r) r.textContent = missRed.length;
+  var bar = box.querySelector('.bar i');
+  if (bar) bar.style.width = (total ? Math.round(got * 100 / total) : 0) + '%';
+  var w = box.querySelector('.dwarn');
+  if (w) w.outerHTML = deskWarn(missRed);
+}
+
+function deskWarn(missRed) {
+  if (!missRed.length) {
+    return '<div class="dwarn" style="border-color:#16a34a;background:rgba(22,163,74,.07)">' +
+      '<b>✅ 红线全过了。</b>剩下的就是把话说清楚——回第12步看怎么出语。</div>';
+  }
+  return '<div class="dwarn"><b>⚠️ 还有 ' + missRed.length + ' 条红线没过</b>——' +
+    '这几条漏一条，断出来的结论就可能整个反过来：<br>' +
+    missRed.map(function (m) {
+      return '<b>第' + esc(m.n) + '步</b> · ' + m.t.replace(/<[^>]+>/g, '').slice(0, 40) + '…';
+    }).join('<br>') + '</div>';
+}
+
 RENDER.desk = function () {
   var box = $('#deskBody');
   box.innerHTML = '<div class="empty">载入中…</div>';
@@ -467,8 +505,8 @@ RENDER.desk = function () {
       esc(S.name || '') + '">' +
       '<button class="btn" id="deskReset">换一盘</button></div>' +
       '<div class="row spread" style="margin-bottom:6px">' +
-      '<span class="muted">已勾 <b>' + got + '</b> / ' + total + ' 项</span>' +
-      '<span class="muted">红线未勾 <b style="color:#dc2626">' + missRed.length + '</b> 条</span></div>' +
+      '<span class="muted">已勾 <b id="deskGot">' + got + '</b> / ' + total + ' 项</span>' +
+      '<span class="muted">红线未勾 <b id="deskRed" style="color:#dc2626">' + missRed.length + '</b> 条</span></div>' +
       '<div class="bar"><i style="width:' + (total ? Math.round(got * 100 / total) : 0) + '%"></i></div>';
 
     var body = d.steps.map(function (st, si) {
@@ -491,26 +529,24 @@ RENDER.desk = function () {
         '</div>';
     }).join('');
 
-    var warn = missRed.length
-      ? '<div class="dwarn"><b>⚠️ 还有 ' + missRed.length + ' 条红线没过</b>——' +
-        '这几条漏一条，断出来的结论就可能整个反过来：<br>' +
-        missRed.map(function (m) {
-          return '<b>第' + esc(m.n) + '步</b> · ' + m.t.replace(/<[^>]+>/g, '').slice(0, 40) + '…';
-        }).join('<br>') + '</div>'
-      : '<div class="dwarn" style="border-color:#16a34a;background:rgba(22,163,74,.07)">' +
-        '<b>✅ 红线全过了。</b>剩下的就是把话说清楚——回第12步看怎么出语。</div>';
-
-    box.innerHTML = (d.intro || '') + head + body + warn;
+    // intro 里那个 <h1> 与顶栏标题重复，正文里只留说明
+    var intro = (d.intro || '').replace(/<h1[\s\S]*?<\/h1>/, '');
+    box.innerHTML = intro + head + body + deskWarn(missRed);
     bindDoc(box);
 
-    // 勾选：整行都可点（手机上 20px 的方框太难点）
+    /* 勾选：整行都可点（手机上 20px 的方框太难点）。
+       ⚠️ 这里**只做局部更新，绝不整屏重渲染**——断盘时人正勾到第 11 步，
+          innerHTML 一重写滚动位置就弹回顶部，等于每勾一下重新找一次位置。 */
     $$('.dstep li', box).forEach(function (li) {
-      li.onclick = function () {
+      li.onclick = function (e) {
+        if (e.target.closest && e.target.closest('a')) return;   // 点章节链接不算勾选
         var st = deskState(); st.done = st.done || {};
         var key = li.dataset.k;
-        if (st.done[key]) delete st.done[key]; else st.done[key] = 1;
+        var on = !st.done[key];
+        if (on) st.done[key] = 1; else delete st.done[key];
         save(K.desk, st);
-        RENDER.desk();
+        li.querySelector('.dbox').classList.toggle('on', on);
+        refreshDeskCounts(box, d);
       };
     });
     var nameEl = $('#deskName');
