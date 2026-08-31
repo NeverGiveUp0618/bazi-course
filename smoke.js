@@ -627,6 +627,42 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(!D.querySelector('#deskBody .dstep .dbox').classList.contains('on'), '「换一盘」清空勾选');
   ok(D.querySelector('#deskBody a.wiki'), '每步都给了回对应章节的链接');
 
+  console.log('\n— 断命台 · 录盘（点选干支 + 吸顶）—');
+  ok($('#deskBody .dpan'), '顶部有八字盘');
+  ok(D.querySelectorAll('#deskBody .dpan .cell').length === 8, '八格：四柱各一干一支');
+  ok($('#deskBody .dpan .col.day'), '日柱有单独标记');
+  // 点年干 → 弹选字面板
+  D.querySelector('.dpan .cell[data-slot="0"]').click(); await wait();
+  ok($('#deskPick'), '点格子弹出选字面板');
+  ok(D.querySelectorAll('#deskPick .grid button').length === 10, '天干给 10 个字');
+  ok($('#deskPick .ph').textContent.includes('年柱天干'), '面板写明正在选哪一格');
+  // 选「甲」→ 落到盘上，并自动跳到年支
+  D.querySelector('#deskPick .grid button[data-ch="甲"]').click(); await wait();
+  ok(D.querySelector('.dpan .cell[data-slot="0"]').textContent === '甲', '选中的字落到盘上');
+  ok(window.eval("JSON.parse(localStorage.getItem('bazi_course_desk')).gz[0]") === '甲', '八字存进 localStorage');
+  ok($('#deskPick') && D.querySelectorAll('#deskPick .grid button').length === 12,
+     '自动跳到本柱地支（12 个字）');
+  // 阴阳不配要淡显：年干甲（阳），丑（阴支）该 dim
+  ok(D.querySelector('#deskPick .grid button[data-ch="丑"]').classList.contains('dim'),
+     '阳干配阴支会淡显提醒（甲 vs 丑）');
+  ok(!D.querySelector('#deskPick .grid button[data-ch="子"]').classList.contains('dim'),
+     '阳干配阳支不淡显（甲 vs 子）');
+  D.querySelector('#deskPick .grid button[data-ch="子"]').click(); await wait();
+  ok(D.querySelector('.dpan .cell[data-slot="4"]').textContent === '子', '地支也落盘');
+  // 乾坤切换
+  const sex0 = $('#deskSex').textContent;
+  $('#deskSex').click(); await wait();
+  ok($('#deskSex').textContent !== sex0, '乾坤可切换');
+  // 换屏必须收掉 fixed 浮层
+  D.querySelector('.dpan .cell[data-slot="1"]').click(); await wait();
+  ok($('#deskPick'), '（先确认面板开着）');
+  D.querySelector('[data-tab="home"]').click(); await wait();
+  ok(!$('#deskPick'), '离开断命台会收掉选字浮层');
+  // 回来后八字还在
+  $('[data-go="desk"]').click(); await wait();
+  ok(D.querySelector('.dpan .cell[data-slot="0"]').textContent === '甲', '离开再回来，录的八字还在');
+  ok(!$('#deskBody').innerHTML.includes('deskName'), '旧的手打输入框已移除');
+
   console.log('\n— 主题 —');
   $('#btnTheme').click();
   ok(D.documentElement.getAttribute('data-theme') === 'dark', '切到深色');

@@ -92,6 +92,7 @@ var TITLES = {
 var ROOTS = { home: 1, course: 1, notes: 1, qlist: 1 };
 
 function _apply(scr, id) {
+  if (cur.scr === 'desk' && scr !== 'desk') closePick();   // 选字浮层是 fixed 的，换屏必须收掉
   cur = { scr: scr, id: id };
   $$('.screen').forEach(function (el) { el.classList.remove('active'); });
   var el = $('#s-' + scr);
@@ -445,7 +446,103 @@ RENDER.index = function () {
  * ⚠️ 设计上刻意只存「当前这一盘」——它是工具不是档案，换盘就清空，
  *    否则上一盘的勾会误导下一盘（比这个多存几盘的价值高得多）。
  */
-function deskState() { return ls(K.desk, { name: '', done: {} }); }
+function deskState() {
+  var s = ls(K.desk, null) || {};
+  if (!s.done) s.done = {};
+  if (!s.gz || s.gz.length !== 8) s.gz = ['', '', '', '', '', '', '', ''];   // 0-3 天干，4-7 地支
+  if (!s.sex) s.sex = '乾';
+  return s;
+}
+
+/* ---------- 断命台 · 录盘 ----------
+ * 照 [[象义随身]] 的做法：点格子 → 弹出字符面板选字，不打字。
+ * ⚠️ 盘要 sticky 吸顶：断盘时人一路往下勾到第 11 步，盘不在眼前等于白录。
+ *    top:50px 与正文里的 .ichart 对齐（顶栏就是 50px 高）。
+ */
+var GAN10 = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+var ZHI12 = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+var PILLAR = ['年', '月', '日', '时'];
+var pickSlot = -1;   // 当前正在选哪一格（0-7），-1 = 面板关着
+
+function deskChartHTML(S, got, total, red) {
+  var cols = PILLAR.map(function (p, i) {
+    var g = S.gz[i], z = S.gz[i + 4], day = i === 2 ? ' day' : '';
+    return '<div class="col' + day + '"><div class="p">' + p + '</div>' +
+      '<button class="cell' + (g ? ' set' : ' em') + '" data-slot="' + i + '">' + (g || '干') + '</button>' +
+      '<button class="cell' + (z ? ' set' : ' em') + '" data-slot="' + (i + 4) + '">' + (z || '支') + '</button>' +
+      '</div>';
+  }).join('');
+  return '<div class="dpan"><div class="prow">' +
+    '<button class="sex" id="deskSex" title="点一下换乾坤">' + S.sex + '</button>' +
+    '<div class="cols">' + cols + '</div></div>' +
+    '<div class="mini"><span>已勾 <b id="deskGot">' + got + '</b> / ' + total +
+    '　红线未勾 <b id="deskRed" style="color:#dc2626">' + red + '</b></span>' +
+    '<span id="deskReset" style="cursor:pointer;text-decoration:underline">换一盘</span></div>' +
+    '<div class="bar" style="margin-top:6px"><i style="width:' +
+    (total ? Math.round(got * 100 / total) : 0) + '%"></i></div></div>';
+}
+
+function closePick() {
+  pickSlot = -1;
+  var el = $('#deskPick');
+  if (el) el.remove();
+  $$('.dpan .cell.on').forEach(function (c) { c.classList.remove('on'); });
+}
+
+function openPick(slot) {
+  closePick();
+  pickSlot = slot;
+  var S = deskState(), isGan = slot < 4, pool = isGan ? GAN10 : ZHI12;
+  var cur = S.gz[slot], pi = slot % 4;
+  var mate = isGan ? S.gz[pi + 4] : S.gz[pi];          // 同柱的另一半
+  var cell = $('.dpan .cell[data-slot="' + slot + '"]');
+  if (cell) cell.classList.add('on');
+
+  var btns = pool.map(function (ch) {
+    // 真实八字里阳干只配阳支：不配的淡显提醒，但不禁用（照象义随身）
+    var dim = mate && (GAN10.indexOf(isGan ? ch : mate) % 2) !== (ZHI12.indexOf(isGan ? mate : ch) % 2);
+    return '<button data-ch="' + ch + '" class="' + (cur === ch ? 'on' : '') +
+      (dim ? ' dim' : '') + '">' + ch + '</button>';
+  }).join('');
+
+  var el = document.createElement('div');
+  el.id = 'deskPick';
+  el.className = 'dpick';
+  el.innerHTML = '<div class="ph">正在选 <b>' + PILLAR[pi] + '柱' + (isGan ? '天干' : '地支') + '</b>' +
+    (mate ? '（本柱' + (isGan ? '地支' : '天干') + '是 ' + mate + '，淡的是阴阳不配的）' : '') +
+    '<span class="x" id="deskPickX">✕</span></div>' +
+    '<div class="grid ' + (isGan ? 'g5' : 'g6') + '">' + btns + '</div>' +
+    (cur ? '<button class="clr" id="deskPickClr">清掉这一格</button>' : '');
+  var pan = $('.dpan');
+  var top = pan ? pan.getBoundingClientRect().bottom : 50;
+  el.style.top = Math.max(50, top) + 'px';
+  document.body.appendChild(el);
+
+  $$('#deskPick .grid button').forEach(function (b) {
+    b.onclick = function () { setSlot(slot, b.dataset.ch); };
+  });
+  $('#deskPickX').onclick = closePick;
+  var clr = $('#deskPickClr');
+  if (clr) clr.onclick = function () { setSlot(slot, ''); };
+}
+
+function setSlot(slot, ch) {
+  var S = deskState();
+  S.gz[slot] = ch;
+  save(K.desk, S);
+  // 只改那一个格子，不重渲染（同勾选，避免滚动位置弹回顶部）
+  var cell = $('.dpan .cell[data-slot="' + slot + '"]');
+  if (cell) {
+    cell.textContent = ch || (slot < 4 ? '干' : '支');
+    cell.classList.toggle('set', !!ch);
+    cell.classList.toggle('em', !ch);
+  }
+  // 选完自动跳下一格：天干四个走完接地支，录一盘只点 8 下
+  var order = [0, 4, 1, 5, 2, 6, 3, 7];
+  var at = order.indexOf(slot);
+  if (ch && at >= 0 && at < order.length - 1) openPick(order[at + 1]); else closePick();
+}
+
 
 /* 勾选后只刷新「数字」那几处：每步的 k/n、顶部总计、进度条、底部红线点名。
    ⚠️ 别顺手改成重渲染——见下面 onclick 里的注释。 */
@@ -499,15 +596,7 @@ RENDER.desk = function () {
       });
     });
 
-    var head =
-      '<div class="dbar">' +
-      '<input id="deskName" placeholder="这一盘（可写四柱，便于自己认）" value="' +
-      esc(S.name || '') + '">' +
-      '<button class="btn" id="deskReset">换一盘</button></div>' +
-      '<div class="row spread" style="margin-bottom:6px">' +
-      '<span class="muted">已勾 <b id="deskGot">' + got + '</b> / ' + total + ' 项</span>' +
-      '<span class="muted">红线未勾 <b id="deskRed" style="color:#dc2626">' + missRed.length + '</b> 条</span></div>' +
-      '<div class="bar"><i style="width:' + (total ? Math.round(got * 100 / total) : 0) + '%"></i></div>';
+    var head = deskChartHTML(S, got, total, missRed.length);
 
     var body = d.steps.map(function (st, si) {
       var n = st.items.length, k = 0;
@@ -549,14 +638,19 @@ RENDER.desk = function () {
         refreshDeskCounts(box, d);
       };
     });
-    var nameEl = $('#deskName');
-    if (nameEl) nameEl.onchange = function () {
-      var st = deskState(); st.name = nameEl.value.slice(0, 40); save(K.desk, st);
+    $$('.dpan .cell', box).forEach(function (c) {
+      c.onclick = function () { openPick(+c.dataset.slot); };
+    });
+    var sx = $('#deskSex');
+    if (sx) sx.onclick = function () {
+      var st = deskState(); st.sex = st.sex === '乾' ? '坤' : '乾'; save(K.desk, st);
+      sx.textContent = st.sex;
     };
     var rs = $('#deskReset');
     if (rs) rs.onclick = function () {
-      if (!confirm('清空当前这一盘的勾选，重新开始？')) return;
-      save(K.desk, { name: '', done: {} });
+      if (!confirm('清空这一盘的八字与勾选，重新开始？')) return;
+      closePick();
+      save(K.desk, { done: {}, gz: ['', '', '', '', '', '', '', ''], sex: '乾' });
       RENDER.desk();
     };
   }).catch(function () {
