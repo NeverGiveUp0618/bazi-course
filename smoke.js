@@ -662,6 +662,15 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   $('[data-go="desk"]').click(); await wait();
   ok(D.querySelector('.dpan .cell[data-slot="0"]').textContent === '甲', '离开再回来，录的八字还在');
   ok(!$('#deskBody').innerHTML.includes('deskName'), '旧的手打输入框已移除');
+  // 五行配色要与正文同一套（WX / .w-*），不能另造一份
+  ok(D.querySelector('.dpan .cell[data-slot="0"]').classList.contains('w-mu'), '盘上「甲」显木色');
+  ok(D.querySelector('.dpan .cell[data-slot="4"]').classList.contains('w-shui'), '盘上「子」显水色');
+  D.querySelector('.dpan .cell[data-slot="3"]').click(); await wait();
+  ok(D.querySelector('#deskPick .grid button[data-ch="甲"]').classList.contains('w-mu'),
+     '选字面板里「甲」也是木色');
+  ok(D.querySelector('#deskPick .grid button[data-ch="壬"]').classList.contains('w-shui'),
+     '选字面板里「壬」是水色');
+  $('#deskPickX').click(); await wait();
 
   console.log('\n— 主题 —');
   $('#btnTheme').click();

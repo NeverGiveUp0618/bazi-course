@@ -597,5 +597,13 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
   background:var(--bg2); color:var(--ink); cursor:pointer; font-family:inherit}
 .dpick .grid button.on{background:var(--indigo); border-color:var(--indigo); color:#fff}
 .dpick .grid button.dim{opacity:.38}
+/* ⚠️ .dpan .cell / .dpick .grid button 自带 color:var(--ink)，选择器比单独的 .w-* 更具体，
+   不显式写这两条，加了 w-mu 也照样是白字（2026-09-01 截图才发现，肉眼盯代码看不出来）。 */
+.dpan .cell.w-mu,   .dpick .grid button.w-mu  {color:var(--wx-mu)}
+.dpan .cell.w-huo,  .dpick .grid button.w-huo {color:var(--wx-huo)}
+.dpan .cell.w-tu,   .dpick .grid button.w-tu  {color:var(--wx-tu)}
+.dpan .cell.w-jin,  .dpick .grid button.w-jin {color:var(--wx-jin)}
+.dpan .cell.w-shui, .dpick .grid button.w-shui{color:var(--wx-shui)}
+.dpick .grid button.on{color:#fff}   /* 选中态是靛蓝底，白字压过五行色 */
 .dpick .clr{margin-top:8px; width:100%; padding:8px; font-size:13px; border:1px solid var(--line);
   border-radius:9px; background:transparent; color:var(--ink2); cursor:pointer; font-family:inherit}

@@ -462,14 +462,16 @@ function deskState() {
 var GAN10 = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
 var ZHI12 = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
 var PILLAR = ['年', '月', '日', '时'];
+// 盘上与选字面板里的字，一律用正文那套五行配色（WX / .w-*），别再造第二份映射
+function wxCls(ch) { return WX[ch] ? ' w-' + WX[ch] : ''; }
 var pickSlot = -1;   // 当前正在选哪一格（0-7），-1 = 面板关着
 
 function deskChartHTML(S, got, total, red) {
   var cols = PILLAR.map(function (p, i) {
     var g = S.gz[i], z = S.gz[i + 4], day = i === 2 ? ' day' : '';
     return '<div class="col' + day + '"><div class="p">' + p + '</div>' +
-      '<button class="cell' + (g ? ' set' : ' em') + '" data-slot="' + i + '">' + (g || '干') + '</button>' +
-      '<button class="cell' + (z ? ' set' : ' em') + '" data-slot="' + (i + 4) + '">' + (z || '支') + '</button>' +
+      '<button class="cell' + (g ? ' set' + wxCls(g) : ' em') + '" data-slot="' + i + '">' + (g || '干') + '</button>' +
+      '<button class="cell' + (z ? ' set' + wxCls(z) : ' em') + '" data-slot="' + (i + 4) + '">' + (z || '支') + '</button>' +
       '</div>';
   }).join('');
   return '<div class="dpan"><div class="prow">' +
@@ -501,7 +503,7 @@ function openPick(slot) {
   var btns = pool.map(function (ch) {
     // 真实八字里阳干只配阳支：不配的淡显提醒，但不禁用（照象义随身）
     var dim = mate && (GAN10.indexOf(isGan ? ch : mate) % 2) !== (ZHI12.indexOf(isGan ? mate : ch) % 2);
-    return '<button data-ch="' + ch + '" class="' + (cur === ch ? 'on' : '') +
+    return '<button data-ch="' + ch + '" class="' + (cur === ch ? 'on' : wxCls(ch).trim()) +
       (dim ? ' dim' : '') + '">' + ch + '</button>';
   }).join('');
 
@@ -534,8 +536,7 @@ function setSlot(slot, ch) {
   var cell = $('.dpan .cell[data-slot="' + slot + '"]');
   if (cell) {
     cell.textContent = ch || (slot < 4 ? '干' : '支');
-    cell.classList.toggle('set', !!ch);
-    cell.classList.toggle('em', !ch);
+    cell.className = 'cell' + (ch ? ' set' + wxCls(ch) : ' em');
   }
   // 选完自动跳下一格：天干四个走完接地支，录一盘只点 8 下
   var order = [0, 4, 1, 5, 2, 6, 3, 7];
@@ -620,7 +621,8 @@ RENDER.desk = function () {
 
     // intro 里那个 <h1> 与顶栏标题重复，正文里只留说明
     var intro = (d.intro || '').replace(/<h1[\s\S]*?<\/h1>/, '');
-    box.innerHTML = intro + head + body + deskWarn(missRed);
+    // 盘在最前：这是工具，打开第一眼要看见八字，说明退到盘后面
+    box.innerHTML = head + intro + body + deskWarn(missRed);
     bindDoc(box);
 
     /* 勾选：整行都可点（手机上 20px 的方框太难点）。
