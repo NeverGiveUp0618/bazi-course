@@ -42,6 +42,15 @@ MAP={
  "牢狱篇":"09、牢狱篇.pdf", "车祸篇":"02、车祸篇.pdf",
 }
 _cache={}
+def _npages(pdf):
+    path=os.path.join(DAREN,pdf)
+    if not os.path.exists(path): return 0
+    d=_cache.get(("doc",pdf))
+    if d is None:
+        d=fitz.open(path); _cache[("doc",pdf)]=d
+    return len(d)
+
+
 def pagetext_wide(pdf, n):
     """页码口径不一时用的宽窗口：PDF 序号 n ± 6 页"""
     path=os.path.join(DAREN,pdf)
@@ -75,6 +84,7 @@ def pagetext(pdf, n):
 
 SRC=re.compile(r'〔([^〕]{2,80}?)\s*p\s*(\d+)')
 tot=miss=skip=0
+oob=[]
 bad=[]; off=[]
 for f in sorted(glob.glob(os.path.join(CONTENT,"**","*.md"), recursive=True)):
     s=io.open(f,encoding="utf-8").read(); name=os.path.basename(f)
@@ -97,6 +107,18 @@ for f in sorted(glob.glob(os.path.join(CONTENT,"**","*.md"), recursive=True)):
         for k,v in MAP.items():
             if k in who: pdf=v; break
         if not pdf: continue
+        # ⭐ 2026-09-22 加：页码不能超过该 PDF 的总页数。扫描件没文本层核不了引文，
+        #    但越界是硬伤——三册按印刷页标的（中级班/例题解/官运篇）就是这样漏了一个多月。
+        npages=_npages(pdf)
+        if npages:
+            # 〔A p4–5、B p42〕这种多来源只看第一本书自己那一段（到下一个书名/分号为止）
+            first=re.split(r'(?:[、；;]|同见|另见|又见|参见)(?=[^p]*?[^\d\s、；;p]\s*p\s*\d)', seg_all)[0]
+            mine=[int(x) for x in re.findall(r'p\s*(\d+)', first)]
+            for a,b in re.findall(r'p\s*(\d+)\s*[-–~]\s*(\d+)', first):
+                mine += list(range(int(a), int(b)+1))
+            over=[x for x in sorted(set(mine)) if x>npages or x<1]
+            if over:
+                oob.append((os.path.relpath(f,CONTENT), i+1, who, over, npages))
         # ⚠️ 只认「紧贴」的引用块：出处行本身，或它上面**连续**的 > 块。
         #    隔着别的段落去猜，必然配错（第一版 34% 未命中，多半是配对错）。
         quote=None
@@ -145,6 +167,9 @@ for f in sorted(glob.glob(os.path.join(CONTENT,"**","*.md"), recursive=True)):
             miss+=1
             bad.append((name,i+1,who,page,quote[:34]))
 print("核了 %d 处引文（跳过无文本/扫描件 %d 处）：页码偏移 %d 处、完全找不到 %d 处\n"%(tot,skip,len(off),miss))
+print("== 页码越界（超过该 PDF 总页数——多半是按印刷页标的或抄错）== %d 处"%len(oob))
+for x in oob: print("  %s:%d  〔%s〕 p%s > 共%d页"%(x[0],x[1],x[2],"/".join(map(str,x[3])),x[4]))
+print()
 print("== 页码偏移（附近几页能找到，多半是按原书印刷页标的）==")
 for x in off: print("  %s:%d  〔%s p%d〕「%s…」"%x)
 print()
