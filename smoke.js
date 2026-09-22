@@ -248,6 +248,9 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '多盘题：题头不放大盘');
   ok(D.querySelectorAll('#quizBody .ichart').length === 2,
      '多盘题：命A命B 两个盘都留在正文（已转成紧凑盘）');
+  // 「同盘另见」引用块里写的盘串曾被简写盘识别提升成第三个紧凑盘（2026-09-22 抓到）
+  ok(!window.DATA_QUIZ.items.some(i => /同盘另见[^]{0,80}ichart/.test(i.face || '')),
+     '「同盘另见」引用块里不长出紧凑盘');
   ok(!!$('#bJie'), '「对答案」按钮存在');
   ok(!$('#L2').innerHTML, '未点开时不泄露答案');
   $('#bJie').click(); await wait();
