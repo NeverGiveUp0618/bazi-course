@@ -575,10 +575,16 @@ def main():
         err('首屏包', f'data-meta.js 涨到 {meta_kb:.1f}KB——大块内容该拆出去按需加载')
 
     # 吸顶盘的数据字段：charts 里的每个盘都要有 4 干 4 支
+    # ⭐ 2026-09-22 加：干支阴阳要配对（阳干配阳支、阴干配阴支），否则那个干支根本不存在。
+    #    抓到过一次真错：听课笔记把「癸未」抄成「庚未」，我照抄进了题523——盘表看着很正常。
+    YANG_G, YANG_Z = set('甲丙戊庚壬'), set('子寅辰午申戌')
     for it in quiz['items']:
         for c in it.get('charts') or []:
             if len(c.get('gan', '')) != 4 or len(c.get('zhi', '')) != 4:
                 err(f'题{it["n"]}', f'吸顶盘数据不是四柱：{c.get("gan")}/{c.get("zhi")}')
+            for g, z in zip(c.get('gan', ''), c.get('zhi', '')):
+                if g in GAN and z in ZHI and (g in YANG_G) != (z in YANG_Z):
+                    err(f'题{it["n"]}', f'干支阴阳不配：{g}{z} 这个干支不存在（笔记抄错？）')
             for ch in c.get('gan', ''):
                 if ch not in GAN:
                     err(f'题{it["n"]}', f'吸顶盘天干位出现「{ch}」')
