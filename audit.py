@@ -585,6 +585,17 @@ def main():
         for m in re.finditer(r'([子丑寅卯辰巳午未申酉戌亥])＝[^｜\n（]*（([甲乙丙丁戊己庚辛壬癸])禄）', it.get('chai') or ''):
             if LU[m.group(2)] != m.group(1):
                 err(f'题{it["n"]}', f'禄位标错：「{m.group(0)}」，{m.group(2)}禄在{LU[m.group(2)]}')
+    # 2026-09-23 产物里不该残留 [[…]]：代码块（缩进/围栏）里的 wiki 链接不会被解析，
+    #   会原样显示成「[[八字05-哪个才是结婚对象|…]]」。改成纯文字即可。
+    for name, docs in (('第%s章', course), ('笔记%s', notes)):
+        for d in docs:
+            h = d.get('html') or ''
+            if '[[' in h:
+                err(name % d.get('n', '?'), '产物里残留 wiki 链接 [[…]]（多半写在代码块里，那里不会解析）')
+    for it in quiz['items']:
+        if any('[[' in (it.get(k) or '') for k in ('face', 'jie', 'chai')):
+            err(f'题{it["n"]}', '产物里残留 wiki 链接 [[…]]（多半写在代码块里，那里不会解析）')
+
     # 2026-09-23 源文件格式扫描：产物结构合法、但源写错了的几类
     #   ① `#> ` 开头（想写引用块却多敲一个 #，线上会显示字面的「#>」）
     #   ② 七级以上标题 `#######`
