@@ -33,6 +33,7 @@
 ⚠️ `<pre>` 里的东西一律不算——那是 ASCII 流程图，2162 个【】、776 个「」
    都是排版的一部分，去掉会乱。所有正文检查都先剥 <pre>。
 """
+import glob
 import io
 import json
 import os
@@ -42,6 +43,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, 'data')
+CONTENT = os.path.join(HERE, 'content')
 
 GAN = '甲乙丙丁戊己庚辛壬癸'
 ZHI = '子丑寅卯辰巳午未申酉戌亥'
@@ -583,6 +585,20 @@ def main():
         for m in re.finditer(r'([子丑寅卯辰巳午未申酉戌亥])＝[^｜\n（]*（([甲乙丙丁戊己庚辛壬癸])禄）', it.get('chai') or ''):
             if LU[m.group(2)] != m.group(1):
                 err(f'题{it["n"]}', f'禄位标错：「{m.group(0)}」，{m.group(2)}禄在{LU[m.group(2)]}')
+    # 2026-09-23 源文件格式扫描：产物结构合法、但源写错了的几类
+    #   ① `#> ` 开头（想写引用块却多敲一个 #，线上会显示字面的「#>」）
+    #   ② 七级以上标题 `#######`
+    #   ③ `****`（两个 strong 挤在一起，多半是手滑）
+    for f in sorted(glob.glob(os.path.join(CONTENT, '**', '*.md'), recursive=True)):
+        rel = os.path.relpath(f, CONTENT)
+        for ln, line in enumerate(io.open(f, encoding='utf-8'), 1):
+            if re.match(r'^#+>', line):
+                err(rel, f'第{ln}行以「#>」开头——想写引用块 `>` 却多了个 #，线上会显示成字面的「#&gt;」')
+            elif re.match(r'^#{7,}', line):
+                err(rel, f'第{ln}行标题超过六级')
+            elif '****' in line:
+                err(rel, f'第{ln}行有 `****`（两个粗体挤在一起，多半手滑）')
+
     YANG_G, YANG_Z = set('甲丙戊庚壬'), set('子寅辰午申戌')
     for it in quiz['items']:
         for c in it.get('charts') or []:
