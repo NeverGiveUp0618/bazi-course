@@ -696,9 +696,12 @@ function vkeLuckHTML(b) {
 /* 讲的一句话摘要：取第一段正文，截断。原文没标题，列表全靠它认人。 */
 function vkeSummary(L) {
   if (L.title) return L.title;
-  var p = L.blocks.filter(function (b) { return b.t === 'p' && b.s.length > 6; })[0];
-  if (!p) { var h = L.blocks.filter(function (b) { return b.t === 'head'; })[0]; return h ? h.s : ''; }
-  return strip(p.s).slice(0, 34);
+  for (var i = 0; i < L.segs.length; i++) {
+    var ps = L.segs[i].blocks.filter(function (b) { return b.t === 'p' && b.s.length > 8; });
+    if (ps.length) return strip(ps[0].s).slice(0, 32);
+  }
+  var h = L.segs[0] && L.segs[0].blocks.filter(function (b) { return b.t === 'head'; })[0];
+  return h ? h.s : '（这一课是零散记录）';
 }
 function strip(h) { var d = document.createElement('div'); d.innerHTML = h; return d.textContent || ''; }
 
@@ -707,26 +710,37 @@ RENDER.vke = function () {
   box.innerHTML = '<div class="muted pad">载入中…</div>';
   needVke().then(function (V) {
     var open = localStorage.getItem(VKE_OPEN) || '上';
+    var PART = { '上': '第一篇', '中': '第二篇', '下': '第三篇' };
+    var by = {};
+    V.lessons.forEach(function (L) { (by[L.vol] = by[L.vol] || []).push(L); });
+
     box.innerHTML =
-      '<div class="card"><b style="font-size:15px">🎧 v课听课原文</b>' +
-      '<div class="muted" style="margin-top:6px;line-height:1.7">' +
-      '第 666–876 讲的<b>逐讲原文</b>，共 ' + V.reduce(function (a, v) { return a + v.nLec; }, 0) + ' 讲、' +
-      V.reduce(function (a, v) { return a + v.nChart; }, 0) + ' 个命盘。<br>' +
-      '⭐ 读的时候<b>盘会钉在顶上</b>；讲里如果出过命例题，标题右边会显示<b>「例 N」</b>，点开就能跳过去对照。<br>' +
-      '<span style="color:var(--ink3)">⚠️ 这是听课笔记原文，措辞比讲义随意；与 PDF 讲义冲突时以讲义为准。</span></div></div>' +
-      V.map(function (v) {
-        var on = v.vol === open;
-        return '<div class="card vvol' + (on ? ' open' : '') + '" data-vol="' + v.vol + '">' +
+      '<div class="card"><b style="font-size:15px">🎧 听课原文 · 共 ' + V.nLesson + ' 课</b>' +
+      '<div class="muted" style="margin-top:6px;line-height:1.75">' +
+      '全部 ' + V.nChart + ' 个命盘。⭐ <b>一个命例和它的分析永远在同一课里</b>——' +
+      '原稿里有 ' + V.nFixed + ' 处分析被切到了下一段，已经接回去了。<br>' +
+      '⭐ 读的时候<b>盘钉在顶上</b>；出过命例题的课，标题右边显示<b>「例 N」</b>，点开能跳过去对照。</div>' +
+      '<div class="vsrc tap" id="vsrcTog">课号对照（要回查原始材料时展开）▸</div>' +
+      '<div class="vsrcbox" id="vsrcBox"><div class="muted" style="font-size:12.5px;line-height:1.9">' +
+      V.lessons.filter(function (L) { return L.src.length; }).map(function (L) {
+        return '<span class="vsrcit">第' + L.k + '课<i>·</i>' + L.src.join('/') + '</span>';
+      }).join('') + '</div></div></div>' +
+      ['上', '中', '下'].map(function (vol) {
+        var ls = by[vol] || []; if (!ls.length) return '';
+        var on = vol === open;
+        var ch = ls.reduce(function (a, L) { return a + L.nChart; }, 0);
+        return '<div class="card vvol' + (on ? ' open' : '') + '" data-vol="' + vol + '">' +
           '<div class="row spread tap vvolhd">' +
-          '<div><b style="font-size:15px">' + v.vol + '卷 · 第 ' + esc(v.range) + ' 讲</b>' +
-          '<div class="muted" style="margin-top:2px">' + v.nLec + ' 讲 · ' + v.nChart + ' 个盘</div></div>' +
+          '<div><b style="font-size:15px">' + PART[vol] + ' · 第 ' + ls[0].k + '–' + ls[ls.length - 1].k + ' 课</b>' +
+          '<div class="muted" style="margin-top:2px">' + ls.length + ' 课 · ' + ch + ' 个命盘</div></div>' +
           '<span class="vcar">' + (on ? '▾' : '▸') + '</span></div>' +
-          '<div class="vlist">' + v.lectures.map(function (L, i) {
+          '<div class="vlist">' + ls.map(function (L) {
             var q = (L.q || []).length;
-            return '<div class="vrow tap" data-lec="' + v.vol + ':' + i + '">' +
-              '<span class="vn">' + (L.n.length ? L.n.join('·') : '卷首') + '</span>' +
-              '<span class="vs">' + esc(L.n.length ? vkeSummary(L) : '这一卷开头的零散记录') + '</span>' +
-              (q ? '<span class="vq">例 ' + q + '</span>' : '') + '</div>';
+            return '<div class="vrow tap" data-lec="' + L.k + '">' +
+              '<span class="vn">' + L.k + '</span>' +
+              '<span class="vs">' + esc(vkeSummary(L)) + '</span>' +
+              (L.nChart ? '<span class="vc">' + L.nChart + '例</span>' : '') +
+              (q ? '<span class="vq">题 ' + q + '</span>' : '') + '</div>';
           }).join('') + '</div></div>';
       }).join('');
   });
@@ -736,34 +750,39 @@ RENDER.vkeread = function (key) {
   var pan = $('#vkePan'), body = $('#vkeBody');
   body.innerHTML = '<div class="muted pad">载入中…</div>';
   needVke().then(function (V) {
-    var kv = String(key || '').split(':'), vol = kv[0], ix = +kv[1] || 0;
-    var v = V.filter(function (x) { return x.vol === vol; })[0] || V[0];
-    var L = v.lectures[ix]; if (!L) return;
-    $('#ttl').textContent = (L.n.length ? '第 ' + L.n.join('、') + ' 讲' : v.vol + '卷 · 卷首');
+    var k = +key || 1;
+    var L = V.lessons.filter(function (x) { return x.k === k; })[0];
+    if (!L) return;
+    $('#ttl').textContent = '第 ' + L.k + ' 课';
 
     var ci = -1;
-    var html = L.blocks.map(function (b) {
-      if (b.t === 'chart') { ci++; return vkeChartHTML(b, ci); }
-      if (b.t === 'luck') return vkeLuckHTML(b);
-      if (b.t === 'head') return '<h3 class="vh">' + esc(b.s) + '</h3>';
-      return '<p class="vp' + (b.star ? ' star' : '') + '">' + b.s + '</p>';
+    var html = L.segs.map(function (sg) {
+      var inner = sg.blocks.map(function (b) {
+        if (b.t === 'luck') return vkeLuckHTML(b);
+        if (b.t === 'head') return '<h3 class="vh">' + esc(b.s) + '</h3>';
+        return '<p class="vp' + (b.star ? ' star' : '') + '">' + b.s + '</p>';
+      }).join('');
+      if (!sg.chart) return '<div class="vseg plain">' + inner + '</div>';
+      ci++;
+      return '<div class="vseg"><div class="vsegh">命例 ' + (ci + 1) +
+        (sg.chart.note ? ' · ' + esc(sg.chart.note) : '') + '</div>' +
+        vkeChartHTML(sg.chart, ci) + inner + '</div>';
     }).join('');
 
     var q = L.q || [];
     body.innerHTML =
-      (q.length ? '<div class="card vqs"><b style="font-size:14px">这一讲出过 ' + q.length + ' 道命例题</b>' +
+      (q.length ? '<div class="card vqs"><b style="font-size:14px">这一课出过 ' + q.length + ' 道命例题</b>' +
         '<div class="muted" style="margin-top:3px;font-size:12.5px">点开对照着看——题里有拆解和出处</div>' +
         '<div class="row wrap" style="gap:7px;margin-top:9px">' +
         q.map(function (n) { return '<span class="vqchip tap" data-q="' + n + '">题 ' + n + ' ›</span>'; }).join('') +
         '</div></div>' : '') +
       '<div class="vbody">' + html + '</div>' +
       '<div class="row spread pad" style="margin-top:18px">' +
-      (ix > 0 ? '<span class="chip tap" data-lec="' + vol + ':' + (ix - 1) + '">‹ 上一讲</span>' : '<span></span>') +
-      (ix < v.lectures.length - 1 ? '<span class="chip tap" data-lec="' + vol + ':' + (ix + 1) + '">下一讲 ›</span>' : '<span></span>') +
+      (k > 1 ? '<span class="chip tap" data-lec="' + (k - 1) + '">‹ 第 ' + (k - 1) + ' 课</span>' : '<span></span>') +
+      (k < V.nLesson ? '<span class="chip tap" data-lec="' + (k + 1) + '">第 ' + (k + 1) + ' 课 ›</span>' : '<span></span>') +
       '</div>';
 
-    // 吸顶：把本讲所有盘收进顶条，滚到哪一段就高亮哪一个
-    var charts = L.blocks.filter(function (b) { return b.t === 'chart'; });
+    var charts = L.segs.filter(function (sg) { return sg.chart; }).map(function (sg) { return sg.chart; });
     pan.innerHTML = charts.length
       ? '<div class="vpanin">' + charts.map(function (b, i) { return vkeChartHTML(b, i); }).join('') + '</div>'
       : '';
@@ -1422,6 +1441,11 @@ document.addEventListener('click', function (e) {
     var on = card.classList.toggle('open');
     card.querySelector('.vcar').textContent = on ? '▾' : '▸';
     if (on) localStorage.setItem(VKE_OPEN, card.dataset.vol);
+    return;
+  }
+  if (e.target.id === 'vsrcTog') {
+    var bx = $('#vsrcBox'), on = bx.classList.toggle('open');
+    e.target.textContent = '课号对照（要回查原始材料时展开）' + (on ? '▾' : '▸');
     return;
   }
   var row = e.target.closest && e.target.closest('[data-lec]');

@@ -377,18 +377,42 @@ def _lecture_to_quiz(quiz_items):
 
 
 def build_vke(quiz_items):
-    """v课听课笔记（三卷原文）。
+    """v课听课笔记 —— 重排成「课」。
 
-    ⚠️ 源是**流水稿**，不是站内 md 体例——讲次号单独成行（可能「828，829」
-       或「834 大老师讲」），盘写成「乾 / 四天干 / 四地支(附注)」三行且
-       **行间有空行**，大运写成「五六个天干 / 五六个地支」两行。
-       所以这里不走 md2html，单独解析成块，前端按块渲染。
-    ⭐ 用词已在入库时统一：倒像→倒象、羊刃→阳刃、座下→坐下（源文件里也已替换）。
+    ⚠️ 源是**流水稿**，按原始讲次切会把命例拦腰截断：38 处讲次一开头就接着上一讲
+       的分析往下说（没有自己的盘）。所以这里**不按讲次分课**，而是：
+         ① 先按讲次号把块解析出来（讲次只当溯源用，不进界面）
+         ② **一讲开头若是正文而不是盘/小标题，就并进上一课** —— 命例这才完整
+         ③ 合并后从 1 连续编号；原始编号收进 src，只在「课号对照」里给出
+         ④ 课内再按「盘」切成若干**命例段**，一个盘和它的分析永远在一块
+         ⑤ 分点序号（①②③ / 1、2、）拆成单独一行，别挤成一坨
+    ⭐ 用词已统一：倒像→倒象、羊刃→阳刃、座下→坐下（源文件里也替换过）。
     """
     GAN, ZHI = '甲乙丙丁戊己庚辛壬癸', '子丑寅卯辰巳午未申酉戌亥'
     HEADS = ('分析', '格局', '口诀', '举例', '大运', '官运', '财运', '婚姻', '子女',
              '六亲', '牢狱', '学业', '疾病', '寿元门', '养子歌', '五行伤官格')
     L2Q = _lecture_to_quiz(quiz_items)
+
+    # ── 分点拆行：①②③ 和「1、2、」挤在一行时，拆成一行一点 ──
+    _NUM = '①②③④⑤⑥⑦⑧⑨⑩'
+
+    def split_points(t):
+        marks = [c for c in t if c in _NUM]
+        if len(marks) >= 2:
+            parts, buf = [], ''
+            for ch in t:
+                if ch in _NUM and buf.strip():
+                    parts.append(buf.strip()); buf = ch
+                else:
+                    buf += ch
+            if buf.strip():
+                parts.append(buf.strip())
+            return parts
+        # 「1、…2、…3、」这种
+        if len(re.findall(r'[1-9]、', t)) >= 2:
+            parts = re.split(r'(?=[1-9]、)', t)
+            return [x.strip() for x in parts if x.strip()]
+        return [t]
 
     def parse(fname, vol):
         lines = [l.rstrip() for l in read(os.path.join(SRC, 'v课笔记', fname)).split('\n')]
@@ -410,11 +434,10 @@ def build_vke(quiz_items):
                 i += 1
                 continue
             m = re.match(r'^(\d{3})((?:\s*[，,、]\s*\d{3})*)(.*)$', line)
-            if m and 666 <= int(m.group(1)) <= 876:   # ⚠️ 正文里也有三位数开头的行，必须卡讲次范围
+            if m and 666 <= int(m.group(1)) <= 876:
                 ns = [int(x) for x in re.findall(r'\d{3}', m.group(1) + (m.group(2) or ''))
                       if 666 <= int(x) <= 876]
-                cur = {'n': ns, 'title': m.group(3).strip(' ，,、'), 'blocks': [],
-                       'q': sorted({q for x in ns for q in L2Q.get(x, [])})}
+                cur = {'src': ns, 'title': m.group(3).strip(' ，,、'), 'blocks': [], 'vol': vol}
                 lec.append(cur)
                 i += 1
                 continue
@@ -435,32 +458,72 @@ def build_vke(quiz_items):
                 b, jb = nxt(i)
                 ag = [c for c in line if c in GAN]
                 bz = [('寅' if c == '新' else c) for c in b if c in ZHI or c == '新']
-                # 大运行：整行只有天干/地支，各 4 个以上
                 if (len(ag) >= 4 and not re.sub(r'[%s\s]' % GAN, '', line)
                         and len(bz) >= 4 and not re.sub(r'[%s新\s]' % ZHI, '', b)):
                     cur['blocks'].append({'t': 'luck', 'gan': ag, 'zhi': bz})
                     i = jb + 1
                     continue
-            if cur is None:            # 讲次之前的卷首语
-                cur = {'n': [], 'title': '卷首', 'blocks': [], 'q': []}
+            if cur is None:
+                cur = {'src': [], 'title': '', 'blocks': [], 'vol': vol}
                 lec.append(cur)
             if len(line) <= 10 and line.startswith(HEADS):
                 cur['blocks'].append({'t': 'head', 's': line})
             else:
-                cur['blocks'].append({'t': 'p', 's': _inline(line.lstrip('*').strip()),
-                                      'star': 1 if line.startswith('*') else 0})
+                for part in split_points(line.lstrip('*').strip()):
+                    cur['blocks'].append({'t': 'p', 's': _inline(part),
+                                          'star': 1 if line.startswith('*') else 0})
             i += 1
-        return {'vol': vol, 'lectures': [x for x in lec if x['blocks']]}
+        return [x for x in lec if x['blocks']]
 
-    vols = [parse('v课笔记-上-666至765讲.md', '上'),
-            parse('v课笔记-中-766至827讲.md', '中'),
-            parse('v课笔记-下-828至876讲.md', '下')]
-    for v in vols:
-        ns = [n for L in v['lectures'] for n in L['n']]
-        v['range'] = '%d–%d' % (min(ns), max(ns)) if ns else ''
-        v['nLec'] = len(v['lectures'])
-        v['nChart'] = sum(1 for L in v['lectures'] for b in L['blocks'] if b['t'] == 'chart')
-    return vols
+    raw = (parse('v课笔记-上-666至765讲.md', '上')
+           + parse('v课笔记-中-766至827讲.md', '中')
+           + parse('v课笔记-下-828至876讲.md', '下'))
+
+    # 文件自己的标题行（"260725年开始的上"这类）不带讲次号，也不是内容，丢掉。
+    raw = [L for L in raw if L['src']]
+
+    # ── ② 把被讲次边界截断的那段分析**移回**上一课 ──
+    # ⚠️ 不是整讲合并：那样会滚雪球（试过，一课吞掉 9 讲、56 个块）。
+    #    只把下一讲**开头那几段正文**搬回去——它们讲的是上一课最后那个盘；
+    #    这一讲从它自己的盘开始，仍然独立成课。
+    # ⚠️ 讲次行**自己带了标题**（如「676 基础知识小老师」）＝换主题了，一个字都不搬。
+    #    不加这道闸，674 的命例会一路吞掉 676–681 六讲纯理论（真踩过）。
+    merged, fixed = [], [0]
+    for L in raw:
+        blocks = L['blocks']
+        if merged and not L['title'] and any(b['t'] == 'chart' for b in merged[-1]['blocks']):
+            cut = 0
+            while cut < len(blocks) and blocks[cut]['t'] == 'p':
+                cut += 1
+            if cut:                      # 开头确实是接着上一课说的
+                fixed[0] += 1
+                merged[-1]['blocks'].extend(blocks[:cut])
+                merged[-1]['src'].extend(L['src'])   # 溯源：这一课还引了哪几讲
+                blocks = blocks[cut:]
+        if blocks:
+            merged.append({'src': L['src'], 'title': L['title'], 'blocks': blocks, 'vol': L['vol']})
+
+    # ── ③ 连续编号；④ 课内按盘切成命例段 ──
+    lessons = []
+    for k, L in enumerate(merged, 1):
+        segs, cur = [], {'chart': None, 'blocks': []}
+        for b in L['blocks']:
+            if b['t'] == 'chart':
+                if cur['chart'] or cur['blocks']:
+                    segs.append(cur)
+                cur = {'chart': b, 'blocks': []}
+            else:
+                cur['blocks'].append(b)
+        if cur['chart'] or cur['blocks']:
+            segs.append(cur)
+        q = sorted({x for n in L['src'] for x in L2Q.get(n, [])})
+        lessons.append({'k': k, 'src': sorted(set(L['src'])), 'title': L['title'], 'vol': L['vol'],
+                        'segs': segs, 'q': q,
+                        'nChart': sum(1 for s in segs if s['chart'])})
+    return {'lessons': lessons,
+            'nLesson': len(lessons),
+            'nChart': sum(x['nChart'] for x in lessons),
+            'nFixed': fixed[0]}
 
 
 def build_desk():
