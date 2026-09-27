@@ -24,6 +24,7 @@ run('data/data-notes.js');
 run('data/data-quiz.js');
 run('data/data-index.js');
 run('data/data-desk.js');
+run('data/data-vke.js');   // ⚠️ 新增数据文件必须同步到这份清单，否则按需加载在 jsdom 里拿不到
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -674,6 +675,51 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(D.querySelector('#deskPick .grid button[data-ch="壬"]').classList.contains('w-shui'),
      '选字面板里「壬」是水色');
   $('#deskPickX').click(); await wait();
+
+  console.log('\n— v课笔记（听课原文）—');
+  {
+    $('.vke-entry').click(); await wait();
+    ok($('#s-vke').classList.contains('active'), '首页入口能进 v课笔记');
+    const V = window.DATA_VKE;
+    ok(V && V.length === 3, '三卷都在');
+    const lec = V.reduce((a, v) => a + v.nLec, 0);
+    const ch = V.reduce((a, v) => a + v.nChart, 0);
+    ok(lec >= 160, `讲数 ${lec} 条（基线 160）`);
+    ok(ch >= 120, `盘数 ${ch} 个（基线 120）`);
+    // 讲次必须都在 666–876 —— 正文里也有三位数开头的行，解析时卡过范围
+    const ns = V.flatMap(v => v.lectures.flatMap(L => L.n));
+    ok(ns.every(n => n >= 666 && n <= 876), '讲次号都在 666–876 内');
+    // 干支阴阳必须配对（阳干配阳支），抄错的盘一眼能看出来
+    const YG = new Set('甲丙戊庚壬'), YZ = new Set('子寅辰午申戌');
+    const bad = [];
+    V.forEach(v => v.lectures.forEach(L => L.blocks.forEach(b => {
+      if (b.t !== 'chart') return;
+      b.gan.forEach((g, i) => { if (YG.has(g) !== YZ.has(b.zhi[i])) bad.push(g + b.zhi[i]); });
+    })));
+    // 842 讲原文就印着「庚未」，是原始笔记的抄错，站内题库已订正为癸未 ⇒ 这里照录，只允许它一个
+    ok(bad.length <= 1, `干支阴阳不配的只剩原文那处（${bad.join(',') || '无'}）`);
+    // 用词已统一
+    const blob = JSON.stringify(V);
+    ok(!blob.includes('倒像'), '「倒像」已全部改成「倒象」');
+    ok(!blob.includes('羊刃'), '「羊刃」已全部改成「阳刃」');
+    ok(!blob.includes('座下'), '「座下」已全部改成「坐下」');
+    ok(!/严春风/.test(blob), '真人姓名已替换');
+    // 挂题号
+    const withQ = V.reduce((a, v) => a + v.lectures.filter(L => L.q.length).length, 0);
+    ok(withQ >= 100, `${withQ} 讲挂上了对应命例题（基线 100）`);
+
+    D.querySelector('.vvol[data-vol="中"] .vvolhd').click(); await wait();
+    ok(D.querySelector('.vvol[data-vol="中"]').classList.contains('open'), '卷能展开');
+    // 挑一个"有盘"的讲来点（卷首那种零散记录没有盘）
+    const row = D.querySelector('.vvol[data-vol="中"] .vrow[data-lec="中:7"]')
+             || D.querySelector('.vvol[data-vol="中"] .vrow');
+    row.click(); await wait(); await wait();
+    ok($('#s-vkeread').classList.contains('active'), '点一讲能进阅读页');
+    ok($('#vkeBody').innerHTML.length > 200, '阅读页有正文');
+    // 盘的五行配色与正文同一套
+    const c1 = D.querySelector('#vkeBody .vchart .a');
+    ok(c1 && /w-(mu|huo|tu|jin|shui)/.test(c1.className), '盘上的天干有五行色');
+  }
 
   console.log('\n— 主题 —');
   $('#btnTheme').click();

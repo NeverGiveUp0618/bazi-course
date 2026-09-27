@@ -363,6 +363,106 @@ def _inline(text):
     return m.group(1) if m else h
 
 
+# 讲次号→站内题号：v课实录那批题都在解里标了「v课 · 第NNN讲」，
+# 反查出来挂到笔记上，读原文时能直接跳到对应的题。
+def _lecture_to_quiz(quiz_items):
+    m = {}
+    for it in quiz_items:
+        blob = (it.get('face') or '') + (it.get('jie') or '') + (it.get('chai') or '')
+        for k in set(re.findall(r'(\d{3})\s*讲', blob)):
+            k = int(k)
+            if 666 <= k <= 876:            # 只认 v课这批，正文里的三位数不算
+                m.setdefault(k, []).append(it['n'])
+    return {k: sorted(set(v)) for k, v in m.items()}
+
+
+def build_vke(quiz_items):
+    """v课听课笔记（三卷原文）。
+
+    ⚠️ 源是**流水稿**，不是站内 md 体例——讲次号单独成行（可能「828，829」
+       或「834 大老师讲」），盘写成「乾 / 四天干 / 四地支(附注)」三行且
+       **行间有空行**，大运写成「五六个天干 / 五六个地支」两行。
+       所以这里不走 md2html，单独解析成块，前端按块渲染。
+    ⭐ 用词已在入库时统一：倒像→倒象、羊刃→阳刃、座下→坐下（源文件里也已替换）。
+    """
+    GAN, ZHI = '甲乙丙丁戊己庚辛壬癸', '子丑寅卯辰巳午未申酉戌亥'
+    HEADS = ('分析', '格局', '口诀', '举例', '大运', '官运', '财运', '婚姻', '子女',
+             '六亲', '牢狱', '学业', '疾病', '寿元门', '养子歌', '五行伤官格')
+    L2Q = _lecture_to_quiz(quiz_items)
+
+    def parse(fname, vol):
+        lines = [l.rstrip() for l in read(os.path.join(SRC, 'v课笔记', fname)).split('\n')]
+
+        def nxt(k, step=1):
+            j, c = k + 1, 0
+            while j < len(lines):
+                if lines[j].strip():
+                    c += 1
+                    if c == step:
+                        return lines[j].strip(), j
+                j += 1
+            return '', -1
+
+        lec, cur, i = [], None, 0
+        while i < len(lines):
+            line = lines[i].strip()
+            if not line:
+                i += 1
+                continue
+            m = re.match(r'^(\d{3})((?:\s*[，,、]\s*\d{3})*)(.*)$', line)
+            if m and 666 <= int(m.group(1)) <= 876:   # ⚠️ 正文里也有三位数开头的行，必须卡讲次范围
+                ns = [int(x) for x in re.findall(r'\d{3}', m.group(1) + (m.group(2) or ''))
+                      if 666 <= int(x) <= 876]
+                cur = {'n': ns, 'title': m.group(3).strip(' ，,、'), 'blocks': [],
+                       'q': sorted({q for x in ns for q in L2Q.get(x, [])})}
+                lec.append(cur)
+                i += 1
+                continue
+            mp = re.match(r'^(乾|坤)\s*[\(（]?([^）\)]*)[\)）]?\s*$', line)
+            if mp and cur is not None:
+                l1, _ = nxt(i)
+                l2, j2 = nxt(i, 2)
+                g = [c for c in l1 if c in GAN]
+                z = [c for c in l2 if c in ZHI]
+                if len(g) == 4 and len(z) == 4 and not re.sub(r'[%s\s]' % GAN, '', l1):
+                    note = re.sub(r'^[%s\s]+' % ZHI, '', l2)
+                    note = re.sub(r'^[\(（]|[\)）]$', '', note).strip()
+                    cur['blocks'].append({'t': 'chart', 'g': mp.group(1), 'gan': g, 'zhi': z,
+                                          'note': (mp.group(2).strip() + ' ' + note).strip()})
+                    i = j2 + 1
+                    continue
+            if cur is not None:
+                b, jb = nxt(i)
+                ag = [c for c in line if c in GAN]
+                bz = [('寅' if c == '新' else c) for c in b if c in ZHI or c == '新']
+                # 大运行：整行只有天干/地支，各 4 个以上
+                if (len(ag) >= 4 and not re.sub(r'[%s\s]' % GAN, '', line)
+                        and len(bz) >= 4 and not re.sub(r'[%s新\s]' % ZHI, '', b)):
+                    cur['blocks'].append({'t': 'luck', 'gan': ag, 'zhi': bz})
+                    i = jb + 1
+                    continue
+            if cur is None:            # 讲次之前的卷首语
+                cur = {'n': [], 'title': '卷首', 'blocks': [], 'q': []}
+                lec.append(cur)
+            if len(line) <= 10 and line.startswith(HEADS):
+                cur['blocks'].append({'t': 'head', 's': line})
+            else:
+                cur['blocks'].append({'t': 'p', 's': _inline(line.lstrip('*').strip()),
+                                      'star': 1 if line.startswith('*') else 0})
+            i += 1
+        return {'vol': vol, 'lectures': [x for x in lec if x['blocks']]}
+
+    vols = [parse('v课笔记-上-666至765讲.md', '上'),
+            parse('v课笔记-中-766至827讲.md', '中'),
+            parse('v课笔记-下-828至876讲.md', '下')]
+    for v in vols:
+        ns = [n for L in v['lectures'] for n in L['n']]
+        v['range'] = '%d–%d' % (min(ns), max(ns)) if ns else ''
+        v['nLec'] = len(v['lectures'])
+        v['nChart'] = sum(1 for L in v['lectures'] for b in L['blocks'] if b['t'] == 'chart')
+    return vols
+
+
 def build_desk():
     """断命台：把 content/断命台.md 解析成逐步检查清单。
 
@@ -408,6 +508,7 @@ def main():
 
     index_md = read(os.path.join(SRC, '00-问题清单.md'))
     desk = build_desk()
+    vke = build_vke(quiz['items'])
     outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
 
     meta = {
@@ -434,6 +535,8 @@ def main():
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
         # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
+        # v课笔记原文（三卷 20 万字）同样按需加载
+        ('data-vke.js', write_js('data-vke.js', 'DATA_VKE', vke)),
     ]
 
     print('== 构建完成 ==')

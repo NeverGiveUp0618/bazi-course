@@ -54,6 +54,14 @@
       </div>
     </div>
 
+    <div class="card tap vke-entry" data-go="vke">
+      <div class="row spread">
+        <div><b style="font-size:15px">🎧 v课笔记 · 听课原文</b>
+          <div class="muted" style="margin-top:2px" id="vkeHint">666–876 讲逐讲原文，命盘吸顶，可跳对应命例</div></div>
+        <span style="color:var(--ink3)">&rsaquo;</span>
+      </div>
+    </div>
+
     <div class="card" id="progCard">
       <div class="row spread"><b style="font-size:15px">学习进度</b><span class="muted" id="progPct">—</span></div>
       <div class="bar"><i id="progBar" style="width:0"></i></div>
@@ -111,6 +119,11 @@
 
   <!-- 索引 / 路线 -->
   <section class="screen" id="s-desk"><div id="deskBody"></div></section>
+  <section class="screen" id="s-vke"><div id="vkeList"></div></section>
+  <section class="screen" id="s-vkeread">
+    <div id="vkePan" class="vpan"></div>
+    <div id="vkeBody" class="doc"></div>
+  </section>
   <section class="screen" id="s-index"><div id="indexBody" class="doc"></div></section>
   <section class="screen" id="s-outline"><div id="outlineBody" class="doc"></div></section>
 

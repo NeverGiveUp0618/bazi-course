@@ -607,3 +607,67 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .dpick .grid button.on{color:#fff}   /* 选中态是靛蓝底，白字压过五行色 */
 .dpick .clr{margin-top:8px; width:100%; padding:8px; font-size:13px; border:1px solid var(--line);
   border-radius:9px; background:transparent; color:var(--ink2); cursor:pointer; font-family:inherit}
+
+/* ===== v课笔记 · 听课原文 =====
+ * 源是流水稿（一讲接一讲、盘与讲解混排），所以：
+ *   列表＝卷折叠 + 讲行；阅读页＝盘吸顶 + 正文。
+ * ⚠️ 一讲常有两三个盘，吸顶条里全部放进去、横向可滑，
+ *    正文滚到哪一段就高亮对应那个（见 app.js vkeStartSpy）。
+ */
+.vvol .vlist{display:none; margin-top:10px; border-top:1px solid var(--line); padding-top:6px}
+.vvol.open .vlist{display:block}
+.vvol .vcar{color:var(--ink3); font-size:13px}
+.vrow{display:flex; align-items:baseline; gap:9px; padding:9px 2px;
+  border-bottom:1px solid color-mix(in srgb,var(--line) 55%, transparent)}
+.vrow:last-child{border-bottom:0}
+.vrow .vn{flex:0 0 auto; min-width:52px; font-size:12.5px; font-weight:700; color:var(--indigo)}
+.vrow .vs{flex:1 1 auto; min-width:0; font-size:13.5px; color:var(--ink2); line-height:1.6;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.vrow .vq{flex:0 0 auto; font-size:11px; padding:1px 7px; border-radius:999px;
+  background:color-mix(in srgb,var(--indigo) 13%, transparent); color:var(--indigo)}
+
+/* 阅读页的盘（正文里 + 吸顶条里共用一套样式） */
+.vchart{display:inline-flex; align-items:center; gap:8px; vertical-align:top;
+  padding:7px 10px; margin:12px 8px 12px 0; border:1px solid var(--line); border-radius:11px;
+  background:var(--bg2)}
+.vchart .lb{flex:0 0 auto; font-size:11.5px; color:var(--ink3); writing-mode:vertical-rl; letter-spacing:2px}
+.vchart .cols{display:flex; gap:7px}
+.vchart .c{text-align:center; min-width:22px}
+.vchart .c .p{font-size:9.5px; color:var(--ink3); line-height:1.3}
+.vchart .c.day .p{color:var(--indigo); font-weight:700}
+.vchart .a,.vchart .b{display:block; font-size:17px; font-weight:600; line-height:1.45}
+.vchart .note{flex:0 0 auto; max-width:9em; font-size:11.5px; color:var(--ink3); line-height:1.5}
+.vluck{display:flex; align-items:center; gap:8px; margin:10px 0; padding:6px 10px;
+  border:1px dashed var(--line); border-radius:10px}
+.vluck .lb{font-size:11.5px; color:var(--ink3)}
+.vluck .cols{display:flex; gap:9px}
+.vluck .c{text-align:center}
+.vluck .a,.vluck .b{display:block; font-size:14.5px; line-height:1.4}
+
+/* 吸顶条。
+   ⚠️ 用 fixed 不用 sticky：sticky 一旦粘住就会**盖住正文一行**
+   （它的原位置已滚出顶部，脱流后压在内容上）。fixed + 给正文补等高的
+   padding-top，内容位置才稳定。 */
+.vpan{position:fixed; top:50px; left:0; right:0; z-index:44; padding:5px 14px 6px;
+  background:color-mix(in srgb,var(--bg) 96%, transparent);
+  backdrop-filter:saturate(1.6) blur(10px); -webkit-backdrop-filter:saturate(1.6) blur(10px);
+  border-bottom:1px solid var(--line)}
+.vpan.hide{display:none}
+/* 正文里那个盘还看得见时，吸顶条收起来——同一个盘不要上下各来一份 */
+.vpan{transition:opacity .16s, transform .16s}
+.vpan.off{opacity:0; pointer-events:none; transform:translateY(-8px)}
+.vpanin{display:flex; gap:8px; overflow-x:auto; scrollbar-width:none}
+.vpanin::-webkit-scrollbar{display:none}
+.vpan .vchart{margin:0; flex:0 0 auto; opacity:.34; transition:opacity .18s}
+.vpan .vchart.on{opacity:1; border-color:var(--indigo)}
+
+/* 正文 */
+.vbody .vh{margin:18px 0 6px; font-size:14px; font-weight:700; color:var(--indigo)}
+.vbody .vp{margin:7px 0; font-size:14.5px; line-height:1.95; color:var(--ink)}
+.vbody .vp.star{padding-left:11px; border-left:2px solid color-mix(in srgb,var(--indigo) 45%, transparent)}
+.vqs{margin-bottom:12px}
+
+.vqchip{display:inline-block; padding:5px 11px; border-radius:999px; font-size:12.5px; font-weight:600;
+  background:color-mix(in srgb,var(--indigo) 15%, transparent); color:var(--indigo);
+  border:1px solid color-mix(in srgb,var(--indigo) 32%, transparent); cursor:pointer}
+.vqchip:active{background:color-mix(in srgb,var(--indigo) 26%, transparent)}
