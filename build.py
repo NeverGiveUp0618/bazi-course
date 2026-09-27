@@ -327,19 +327,25 @@ def build_quiz():
 # ---------------------------------------------------------------- 教材 / 笔记
 
 def build_docs(files, kind):
+    # 教材走「讲解手册」模式：标题清掉施工痕迹、重新连续编号、存疑节降小字。
+    # 笔记是问答体、结构本来就简单，不套这层（套了反而把"问"的编号改掉）。
+    manual = (kind == 'c')
     docs = []
     for path, num, title in files:
         s = read(path)
         # 去掉正文首行大标题（页面自己有标题栏）
         s = re.sub(r'^#\s+.*?\n', '', s, count=1)
         heads = []
-        html = md2html(s, heading_offset=0, collect_headings=heads)
+        html = md2html(s, heading_offset=0, collect_headings=heads, manual=manual)
+        if not manual:
+            heads = [(lv, t, a, 0, False) for lv, t, a in heads]
         docs.append({
             'id': f'{kind}{num}',
             'n': num,
             'title': title,
             'html': html,
-            'toc': [{'lv': lv, 't': t, 'a': a} for lv, t, a in heads if lv <= 3],
+            'toc': [{'lv': lv, 't': t, 'a': a, 'st': st, 'm': 1 if mn else 0}
+                    for lv, t, a, st, mn in heads if lv <= 3],
             'text': strip_md(s),
             'chars': len(s),
         })

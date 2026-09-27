@@ -80,6 +80,9 @@ def load(name, var):
 
 
 def strip_pre(h):
+    # data-raw 存的是标题原文（带 ** 、[[ ]] 这些没渲染的写法），它不是给人看的，
+    # 别让残留检查把它当成"解析器漏了"。
+    h = re.sub(r'\sdata-raw="[^"]*"', '', h)
     return re.sub(r'<pre[\s\S]*?</pre>', '', h)
 
 
@@ -184,9 +187,17 @@ def _titles(html):
     ⚠️ 不能用 build 出来的 toc——它只收 lv<=3，h4 标题会被误判成"不存在"。
     ⚠️ 必须 unescape：html 里引号是 &quot;，而 md 原文是真引号，不还原就全对不上。"""
     out = set()
-    for m in re.finditer(r'<h[1-6][^>]*>([\s\S]*?)</h[1-6]>', html):
-        t = re.sub(r'<[^>]+>', '', m.group(1))
+    for m in re.finditer(r'<h[1-6]([^>]*)>([\s\S]*?)</h[1-6]>', html):
+        t = re.sub(r'<[^>]+>', '', m.group(2))
         out.add(_unescape(t).strip())
+        # 手册模式下标题被洗过，引用写的是原文 —— data-raw 存的就是原文
+        mr = re.search(r'data-raw="([^"]*)"', m.group(1))
+        if mr:
+            raw = _unescape(mr.group(1)).strip()
+            out.add(raw)
+            # 「」在渲染时会变成 <q> 标签、strip 后就没了，引用方往往照着
+            # 渲染结果抄，写的是不带引号的那一版 —— 两种都认。
+            out.add(re.sub(r'[「」『』]', '', raw))
     return out
 
 

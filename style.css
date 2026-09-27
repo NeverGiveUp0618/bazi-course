@@ -689,3 +689,105 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
   background:color-mix(in srgb,var(--indigo) 15%, transparent); color:var(--indigo);
   border:1px solid color-mix(in srgb,var(--indigo) 32%, transparent); cursor:pointer}
 .vqchip:active{background:color-mix(in srgb,var(--indigo) 26%, transparent)}
+
+/* ---------- 讲解手册模式（教材 16 章） ----------
+   痛点是"从上看到下一个样，看得头晕"。所以只做一件事：把层级做出落差。
+   一级节＝带序号的深色块 + 上方分隔；二级节＝序号在左、标题在右；
+   重点/必背/注意/存疑做成小 pill；存疑那一节连正文一起缩成小字灰。 */
+.doc h2.mh{
+  display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;
+  font-size:19.5px;margin:34px 0 14px;padding:0 0 9px;
+  border-left:0;border-bottom:2px solid var(--indigo);color:var(--indigo)
+}
+.doc h2.mh:first-child{margin-top:8px}
+.doc h3.mh{
+  display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+  font-size:17px;margin:24px 0 9px;color:var(--ink)
+}
+.doc h4.mh{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap}
+.mhn{
+  flex:none;font-family:Georgia,serif;font-weight:700;font-size:13.5px;
+  color:#fff;background:var(--indigo);border-radius:7px;
+  padding:2px 8px;letter-spacing:.3px;position:relative;top:-1px
+}
+.doc h3.mh .mhn,.doc h4.mh .mhn{
+  background:none;color:var(--indigo2);padding:0;font-size:15px;
+  min-width:30px;text-align:right;top:0
+}
+.mht{flex:1 1 auto;min-width:0}
+/* 注意节：序号换成警示色，标题旁淡黄底 */
+.doc h3.mhw .mhn,.doc h4.mhw .mhn{color:var(--warn)}
+.doc h2.mhw{border-bottom-color:var(--warn);color:var(--warn)}
+.doc h2.mhw .mhn{background:var(--warn)}
+
+.mhb{
+  flex:none;font-family:system-ui,-apple-system,sans-serif;
+  font-size:11px;font-weight:600;line-height:1.6;letter-spacing:.5px;
+  padding:1px 7px;border-radius:6px;position:relative;top:-2px;
+  color:var(--indigo);background:var(--indigo-soft);
+  border:1px solid color-mix(in srgb,var(--indigo) 30%,transparent)
+}
+.mhb2{color:#fff;background:var(--cinnabar);border-color:var(--cinnabar)}
+.mhbw{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);
+      border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.mhbm{color:var(--ink3);background:transparent;border-color:var(--line)}
+/* 出处/提示小字，跟在标题下面 */
+.mhnote{
+  font-size:12.5px;color:var(--ink3);margin:-6px 0 10px;
+  padding-left:2px;font-family:system-ui,-apple-system,sans-serif
+}
+/* 存疑·待查那一节：留着，但缩到次要位置 */
+.minorbody{
+  font-size:14px;line-height:1.75;color:var(--ink3);
+  margin:8px 0 18px;padding:2px 0 2px 12px;
+  border-left:2px dotted var(--line)
+}
+.minorbody p{margin:7px 0}
+.minorbody strong{color:var(--ink2);font-weight:600}
+.minorbody blockquote{font-size:13.5px;padding:8px 11px}
+.minorbody table{font-size:13px}
+
+/* 本章地图 */
+.cmap{
+  margin:14px 0 26px;padding:13px 15px;border-radius:12px;
+  background:var(--bg2);border:1px solid var(--line)
+}
+.cmaph{
+  font-family:Georgia,"Songti SC",serif;font-size:14px;font-weight:700;
+  color:var(--indigo);letter-spacing:1px;margin-bottom:5px
+}
+.cmapn{font-size:12.5px;color:var(--ink2);line-height:1.7}
+.cmapn b{color:var(--cinnabar)}
+.cmapr{display:flex;gap:8px;margin-top:9px;align-items:flex-start}
+.cmapl{
+  flex:none;font-size:11px;font-weight:600;color:var(--ink3);
+  padding-top:4px;min-width:26px
+}
+.cmapr>div{display:flex;flex-wrap:wrap;gap:6px}
+.mapit{
+  font:inherit;font-size:12.5px;line-height:1.5;cursor:pointer;
+  padding:3px 9px;border-radius:14px;text-align:left;
+  background:var(--card);color:var(--ink2);border:1px solid var(--line)
+}
+.mapit:active{transform:scale(.97)}
+.mapmust{color:var(--cinnabar);border-color:color-mix(in srgb,var(--cinnabar) 35%,transparent)}
+.mapkey{color:var(--indigo);border-color:color-mix(in srgb,var(--indigo) 28%,transparent)}
+.cmapmore{font-size:11.5px;color:var(--ink3);align-self:center;padding-left:2px}
+
+/* 正文里的提示框：⚠️＝提醒，⭐＝要点。标记符号本身缩小让位给文字 */
+.doc .tip{
+  margin:13px 0;padding:9px 13px;border-radius:0 10px 10px 0;
+  border-left:3px solid var(--line);background:var(--bg2)
+}
+.doc .tip p{margin:4px 0;font-size:15.5px}
+.doc .tipw{border-left-color:var(--warn);
+  background:color-mix(in srgb,var(--warn) 8%,var(--card))}
+.doc .tipw2{border-left-color:var(--cinnabar);border-left-width:4px;
+  background:color-mix(in srgb,var(--cinnabar) 9%,var(--card))}
+.doc .tips{border-left-color:var(--indigo);background:var(--indigo-soft)}
+.doc .tips2{border-left-color:var(--gold);border-left-width:4px;
+  background:color-mix(in srgb,var(--gold) 11%,var(--card))}
+.doc .tip .mkw,.doc .tip .mks{font-size:12px;opacity:.85}
+/* 小字节里的提示框跟着降级，别在次要区里又抢眼 */
+.minorbody .tip{margin:8px 0;padding:6px 10px;background:transparent}
+.minorbody .tip p{font-size:13.5px}

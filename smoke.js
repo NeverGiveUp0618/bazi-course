@@ -82,6 +82,33 @@ const wait = () => new Promise(r => setTimeout(r, 30));
      '干支已按五行上色，共 ' + D.querySelectorAll('#chapterBody [class*="w-"]').length + ' 字');
   ok($('#btnBack').classList.contains('show'), '返回键出现');
 
+  console.log('\n— 讲解手册模式（教材专用）—');
+  {
+    const body = $('#chapterBody');
+    const h = body.innerHTML;
+    ok(D.querySelectorAll('#chapterBody h2.mh').length >= 5,
+       '一级节用手册标题，共 ' + D.querySelectorAll('#chapterBody h2.mh').length + ' 节');
+    // 序号必须从 1 连续排（源里那些「一·B、」「3.2·C」补丁编号不能露出来）
+    const ns = [...D.querySelectorAll('#chapterBody h2.mh .mhn')].map(e => +e.textContent);
+    ok(ns.length && ns.every((v, i) => v === i + 1),
+       '一级节序号 1..' + ns.length + ' 连续');
+    const subs = [...D.querySelectorAll('#chapterBody h3.mh .mhn')].map(e => e.textContent);
+    ok(subs.every(t => /^\d+\.\d+$/.test(t)), '二级节序号是 x.y 式，共 ' + subs.length + ' 个');
+    ok(!/[⭐⚠️]/.test([...D.querySelectorAll('#chapterBody .mht')].map(e => e.textContent).join('')),
+       '标题文字里不再混 ⭐／⚠️（已变成右边的小标）');
+    ok(!/\d{4}-\d{2}-\d{2}/.test([...D.querySelectorAll('#chapterBody .mht')]
+       .map(e => e.textContent).join('')), '标题文字里不再有施工日期');
+    ok(D.querySelectorAll('#chapterBody .mhb').length > 0,
+       '重点／必背／注意做成小标，共 ' + D.querySelectorAll('#chapterBody .mhb').length + ' 个');
+    ok(D.querySelectorAll('#chapterBody h2[data-raw], #chapterBody h3[data-raw]').length > 0,
+       'data-raw 留着标题原文（几百处 [[章#节]] 靠它定位）');
+    ok(D.querySelectorAll('#chapterBody .tip').length > 0,
+       '段首 ⚠️／⭐ 的段落包成提示框，共 ' + D.querySelectorAll('#chapterBody .tip').length + ' 个');
+    ok(D.querySelectorAll('#chapterBody .cmap').length === 1, '章首有「本章地图」');
+    ok(D.querySelectorAll('#chapterBody .cmap .mapit').length <= 6,
+       '地图最多列 6 条，不能占满一屏');
+  }
+
   console.log('\n— 内容格式（括号换成样式、干支上色）—');
   {
     const h = $('#chapterBody').innerHTML;

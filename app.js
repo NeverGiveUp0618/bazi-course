@@ -205,10 +205,36 @@ function takeFind() { var f = pendingFind; pendingFind = null; return f; }
 var BLOCKISH = { P: 1, LI: 1, TD: 1, TH: 1, DIV: 1, BLOCKQUOTE: 1, PRE: 1,
                  H1: 1, H2: 1, H3: 1, H4: 1, TABLE: 1 };
 
+/* 按标题原文（data-raw）定位。引用方有时照着渲染结果抄，把「」漏掉了，
+   所以两边都去掉「」再比一次。 */
+function findHeadRaw(roots, kw) {
+  var want = String(kw).trim();
+  var bare = want.replace(/[「」『』]/g, '');
+  if (!want) return false;
+  for (var i = 0; i < roots.length; i++) {
+    var hs = roots[i].querySelectorAll ? roots[i].querySelectorAll('[data-raw]') : [];
+    for (var k = 0; k < hs.length; k++) {
+      var raw = hs[k].getAttribute('data-raw').trim();
+      if (raw === want || raw.replace(/[「」『』]/g, '') === bare) {
+        hs[k].classList.add('sr-blk');
+        try { hs[k].scrollIntoView({ block: 'start' }); }
+        catch (e) { try { window.scrollTo(0, hs[k].offsetTop - 120); } catch (e2) {} }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 function findInDoc(roots, kw, occ) {
   if (!kw) return false;
   roots = [].concat(roots).filter(Boolean);
   if (!roots.length) return false;
+
+  // ⭐ [[某章#某节]] 跳的是节标题。教材的标题在"讲解手册"模式下被洗过
+  //    （去掉了补丁编号、⭐、日期），按文字已经搜不到原文那一串了 ——
+  //    data-raw 留着清洗前的整行，先按它精确命中，命中不了再退回文本搜索。
+  if (findHeadRaw(roots, kw)) return true;
 
   var nodes = [], text = '';
   roots.forEach(function (root) {
@@ -364,6 +390,39 @@ RENDER.course = function () {
   });
 };
 
+/* 本章地图 —— 一进来先知道"这章哪几节是硬货、哪几节可以先跳过"，
+   不然 16 章从上看到下全是一个调子，看不出主次。 */
+function chapterMap(c) {
+  var toc = c.toc || [];
+  if (toc.length < 4) return '';
+  var must = toc.filter(function (t) { return t.st >= 2 && !t.m; });
+  var key = toc.filter(function (t) { return t.st === 1 && !t.m; });
+  var doubt = toc.filter(function (t) { return t.m; }).length;
+  var sec = toc.filter(function (t) { return t.lv === 2; }).length;
+  function chips(a, cls) {
+    return a.map(function (t) {
+      return '<button class="mapit ' + cls + '" data-mapa="' + esc(t.a) + '">' +
+        esc(t.t) + '</button>';
+    }).join('');
+  }
+  // ⚠️ 地图必须一眼扫完。全列出来会占满一屏、把正文挤到第二屏，
+  //    那就又回到"从上看到下"了 —— 所以只给必背的前 6 条，重点只报个数。
+  var SHOW = 6;
+  var h = '<div class="cmap"><div class="cmaph">本章地图</div>' +
+    '<div class="cmapn">共 ' + sec + ' 节' +
+    (must.length ? ' · <b>' + must.length + ' 处必背</b>' : '') +
+    (key.length ? ' · ' + key.length + ' 处重点' : '') +
+    (doubt ? ' · ' + doubt + ' 处存疑（小字，可跳过）' : '') +
+    '</div>';
+  if (must.length) {
+    h += '<div class="cmapr"><span class="cmapl">先看</span><div>' +
+      chips(must.slice(0, SHOW), 'mapmust') +
+      (must.length > SHOW ? '<span class="cmapmore">…另 ' +
+        (must.length - SHOW) + ' 处</span>' : '') + '</div></div>';
+  }
+  return h + '</div>';
+}
+
 var curDoc = null;
 RENDER.chapter = function (n) {
   needCourse().then(function (list) {
@@ -371,8 +430,16 @@ RENDER.chapter = function (n) {
     if (!c) return;
     curDoc = c;
     $('#ttl').textContent = '第' + c.n + '章 · ' + c.title;
-    $('#chapterBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + c.html;
+    $('#chapterBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + chapterMap(c) + c.html;
     bindDoc($('#chapterBody'));
+    $$('[data-mapa]', $('#chapterBody')).forEach(function (b) {
+      b.onclick = function () {
+        var el = document.getElementById(b.dataset.mapa);
+        // scroll-margin-top 已经给标题留了吸顶条的高度，这里直接滚到它
+        if (el) try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          catch (e) { el.scrollIntoView(); }
+      };
+    });
     $('#prevCh').disabled = n <= 1;
     $('#nextCh').disabled = n >= list.length;
     $('#prevCh').onclick = function () { show('chapter', n - 1); };

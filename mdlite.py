@@ -85,6 +85,131 @@ _RAW = re.compile(r'^\s*</?(details|summary|div|br|hr|p|span|img)\b', re.I)
 _TABLE_SEP = re.compile(r'^\s*\|[\s:|-]+\|\s*$')
 
 
+# ---------- 讲解手册模式：标题清洗 ----------
+# ⚠️ 源文件的标题里混着三种给"施工"看的东西，学习时全是噪音：
+#      重要度 ⭐⭐ ／ 警示 ⚠️ ／ 补丁编号「一·B、」「3.2·C」／ 日期「（2026-08-28 补）」
+#    手册模式把它们从标题文字里摘出来，各自变成一个小标记，标题只剩"这一节讲什么"。
+# ⚠️⚠️ 锚点仍用**原始标题**生成 —— 站内几百处交叉指引靠它，绝不能跟着变。
+
+_HM_MARK = re.compile(r'^((?:⭐|⚠️|📌|💡|❗|✅|❌|※|\s)+)')
+# 补丁编号：中文序号带·B、阿拉伯多级带·C、圆圈数字、以及裸"判据"式小节
+_HM_NUM = re.compile(
+    r'^(?:'
+    r'[一二三四五六七八九十]+(?:·[A-Z])?[、.．]'          # 一、 / 一·B、
+    r'|\d+(?:\.\d+)*(?:·[A-Z])?[、.．]?(?=\s|\S)'      # 3.2 / 3.2·B
+    r'|[①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]'                          # ①
+    r')\s*')
+_HM_TAIL = re.compile(r'（([^（）]{1,60})）\s*$')
+_HM_DATE = re.compile(r'\d{4}-\d{2}-\d{2}\s*')
+# 尾注里剩下这些就是纯施工痕迹，整条丢掉
+_HM_JUNK = re.compile(r'^(?:补|补齐|补充|补上|新增|已?订正|重写|改写|待补)?$')
+
+
+def _hm_head(raw):
+    """拆一行标题 → (正文, 星级, 警示级, 小字注, 是否次要)。"""
+    t = raw.strip()
+    minor = False
+
+    # ① 前导标记
+    m = _HM_MARK.match(t)
+    stars = warn = 0
+    if m:
+        stars = m.group(1).count('⭐')
+        warn = m.group(1).count('⚠️')
+        t = t[m.end():].lstrip()
+
+    # ② 补丁编号（丢掉，渲染时重新连续编号）
+    t = _HM_NUM.sub('', t, count=1).lstrip()
+
+    # ③ 标记可能夹在编号后面（「一·B、⭐⭐ 被漏掉的…」）
+    m = _HM_MARK.match(t)
+    if m:
+        stars = max(stars, m.group(1).count('⭐'))
+        warn = max(warn, m.group(1).count('⚠️'))
+        t = t[m.end():].lstrip()
+
+    # ④ 〔存疑〕/待查 → 次要
+    if '存疑' in t or '待查' in t:
+        minor = True
+    t = re.sub(r'^〔(?:存疑|待查)〕\s*', '', t)
+
+    # ⑤ 尾巴上的括号注：日期是施工痕迹，出处/提示留成小字
+    note = ''
+    m = _HM_TAIL.search(t)
+    if m:
+        orig = m.group(1)
+        # ⚠️ 只有尾注里**真带日期**才算施工痕迹。不设这个前提，
+        #    「（与 1.3 互补）」会被削成「与 1.3 互」——"互补"的补挨了刀。
+        if _HM_DATE.search(orig):
+            inner = _HM_DATE.sub('', orig).strip(' ，,、')
+            inner = re.sub(r'\s*(?:补齐|补上|补充|补|新增|重写)$', '', inner).strip(' ，,、')
+            t = t[:m.start()].rstrip()
+            # 留下来的小字注只有一个用处：能回查原书。所以必须带页码或讲次，
+            # 「核」「v课补入」「从面授」这类只说明我当时干了什么，对学习没用。
+            inner = re.sub(r'^(?:补|补充|新增|补入)[，,、]\s*', '', inner)
+            note = inner if re.search(r'p\s*\d|\d\s*讲', inner) else ''
+        elif _HM_JUNK.match(orig.strip()):
+            t = t[:m.start()].rstrip()          # 「（补）」这种纯痕迹
+    return t.strip() or raw.strip(), stars, warn, note, minor
+
+
+def _hm_render(lv, txt, anchor, seq):
+    """手册模式的标题 HTML：序号色块 + 标题 + 重点/注意标 + 小字注。"""
+    body, stars, warn, note, minor = _hm_head(txt)
+    num = ''
+    if lv == 2:
+        seq[2] += 1
+        seq[3] = 0
+        num = str(seq[2])
+    elif lv == 3:
+        seq[3] += 1
+        num = '%d.%d' % (seq[2], seq[3]) if seq[2] else str(seq[3])
+    cls = ['mh', 'mh%d' % lv]
+    if warn:
+        cls.append('mhw')
+    if minor:
+        cls.append('mhm')
+    bits = []
+    if num:
+        bits.append('<span class="mhn">%s</span>' % num)
+    bits.append('<span class="mht">%s</span>' % _inline(body))
+    if stars >= 2:
+        bits.append('<span class="mhb mhb2">必背</span>')
+    elif stars == 1:
+        bits.append('<span class="mhb">重点</span>')
+    if warn:
+        bits.append('<span class="mhb mhbw">注意</span>')
+    if minor:
+        bits.append('<span class="mhb mhbm">存疑</span>')
+    # ⚠️ data-raw 留着**清洗前**的整行标题：站内几百处 [[某章#某节]] 是按
+    #    标题原文去页面里找的，标题一洗它们就全落空。跳转和 audit 都认这个属性。
+    h = '<h%d id="%s" class="%s" data-raw="%s">%s</h%d>' % (
+        lv, anchor, ' '.join(cls), _html.escape(txt.strip(), quote=True), ''.join(bits), lv)
+    if note:
+        h += '<div class="mhnote">%s</div>' % _inline(note)
+    return h, body, minor
+
+
+_HM_TIP = re.compile(r'^(?:\*\*)?((?:⚠️|⭐|📌|💡)+)')
+
+
+def _hm_tip(para):
+    """段首标记 → 提示框的类名。没有标记就返回 None。"""
+    m = _HM_TIP.match(para.strip())
+    if not m:
+        return None
+    mk = m.group(1)
+    if '⚠️⚠️' in mk:
+        return 'tipw2'
+    if '⚠️' in mk:
+        return 'tipw'
+    if '⭐⭐' in mk:
+        return 'tips2'
+    if '⭐' in mk:
+        return 'tips'
+    return 'tipi'
+
+
 _PILLARS = ['年', '月', '日', '时']
 
 # 干支 → 五行，用来上色。用户要求「按五行本色看」，比按干支分色好认。
@@ -229,17 +354,26 @@ def _cells(line):
     return [c.strip().replace('\x00P\x00', '|') for c in line.split('|')]
 
 
-def md2html(text, heading_offset=0, collect_headings=None):
+def md2html(text, heading_offset=0, collect_headings=None, manual=False):
     """转换 markdown。
 
     heading_offset: 标题降级层数（章节内容嵌进页面时用）。
-    collect_headings: 传入 list 则回填 (level, text, anchor)，用于生成目录。
+    collect_headings: 传入 list 则回填 (level, text, anchor, stars, minor)，用于生成目录。
+    manual: 讲解手册模式 —— 标题去掉施工痕迹、重新连续编号、
+            存疑/待查那一节连正文一起降成小字（见 _hm_head）。
     """
     lines = text.replace('\r\n', '\n').split('\n')
     out = []
     i = 0
     n = len(lines)
     anchors = {}
+    seq = {2: 0, 3: 0}          # 手册模式的连续编号
+    minor_open = [None]         # 正在收小字的那一节的层级
+
+    def close_minor(lv=0):
+        if minor_open[0] is not None and lv <= minor_open[0]:
+            out.append('</div>')
+            minor_open[0] = None
 
     def anchor_for(t):
         base = re.sub(r'[^\w一-鿿]+', '-', re.sub(r'<[^>]+>', '', t)).strip('-') or 'h'
@@ -281,10 +415,26 @@ def md2html(text, heading_offset=0, collect_headings=None):
         m = _H.match(line)
         if m:
             lv = min(6, len(m.group(1)) + heading_offset)
-            txt = _inline(m.group(2))
             a = anchor_for(m.group(2))
+            if manual and 2 <= lv <= 4:
+                close_minor(lv)
+                h, clean, minor = _hm_render(lv, m.group(2), a, seq)
+                out.append(h)
+                _, stars, _w, _nt, _mn = _hm_head(m.group(2))
+                if collect_headings is not None:
+                    collect_headings.append((len(m.group(1)), clean, a, stars, minor))
+                if minor:
+                    out.append('<div class="minorbody">')
+                    minor_open[0] = lv
+                i += 1
+                continue
+            txt = _inline(m.group(2))
+            if manual:
+                close_minor(lv)
             if collect_headings is not None:
-                collect_headings.append((len(m.group(1)), re.sub(r'<[^>]+>', '', txt), a))
+                ct = re.sub(r'<[^>]+>', '', txt)
+                collect_headings.append((len(m.group(1)), ct, a, 0, False)
+                                        if manual else (len(m.group(1)), ct, a))
             out.append(f'<h{lv} id="{a}">{txt}</h{lv}>')
             i += 1
             continue
@@ -356,6 +506,11 @@ def md2html(text, heading_offset=0, collect_headings=None):
             buf.append(lines[i])
             i += 1
         para = '<br>'.join(buf)
+        # 手册模式：段首的 ⚠️／⭐ 是作者标的"这段要紧"，正文里却和别的段一个样。
+        # 给它们各自一个框，一屏扫下去就能分出"提醒"和"要点"。
+        tip = _hm_tip(para) if manual else None
+        if tip:
+            out.append('<div class="tip %s">' % tip)
         parts = _lift_inline_chart(para)
         if parts:
             for kind, txt in parts:
@@ -363,7 +518,11 @@ def md2html(text, heading_offset=0, collect_headings=None):
                            else '<p>' + _inline(txt).replace('&lt;br&gt;', '<br>') + '</p>')
         else:
             out.append('<p>' + _inline(para).replace('&lt;br&gt;', '<br>') + '</p>')
+        if tip:
+            out.append('</div>')
 
+    if manual:
+        close_minor(0)
     return '\n'.join(out)
 
 
