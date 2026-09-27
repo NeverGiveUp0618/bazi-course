@@ -325,13 +325,14 @@ const wait = () => new Promise(r => setTimeout(r, 30));
 
   console.log('\n— 搜索：题库要能搜到答案与拆解（data 里的 text 被截到 600 字）—');
   {
-    // 「羊刃」在题17 只出现在拆解里，旧的 q.text 截断后根本搜不到
-    const h = await search('羊刃');
+    // 「阳刃」在题17 只出现在拆解里，旧的 q.text 截断后根本搜不到
+    // （2026-09-27 全站「羊刃」统一成「阳刃」后同步改的关键词）
+    const h = await search('阳刃');
     const t17 = window.DATA_QUIZ.items.find(i => i.n === 17).title;
     const q17 = Array.from(h).find(e => e.querySelector('b').textContent.indexOf(t17) === 0);
-    ok(!!q17, '搜到题17 的「羊刃」——它只写在拆解里');
+    ok(!!q17, '搜到题17 的「阳刃」——它只写在拆解里');
     const raw = window.DATA_QUIZ.items.find(i => i.n === 17);
-    ok(raw.text.indexOf('羊刃') < 0, '（对照）data 的 text 字段里确实没有它，说明走的是新的全文提取');
+    ok(raw.text.indexOf('阳刃') < 0, '（对照）data 的 text 字段里确实没有它，说明走的是新的全文提取');
 
     q17.click(); await wait();
     ok($('#quizBody .qhead .tt').textContent === t17, '点结果跳进题17');
