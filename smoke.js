@@ -105,6 +105,13 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(D.querySelectorAll('#chapterBody .tip').length > 0,
        '段首 ⚠️／⭐ 的段落包成提示框，共 ' + D.querySelectorAll('#chapterBody .tip').length + ' 个');
     ok(D.querySelectorAll('#chapterBody .cmap').length === 1, '章首有「本章地图」');
+    // 待查/存疑段要降成小字，不能包成抢眼的黄框；但"判据补上了"这类
+    // 只是**引述**了一句"原书没给判据"的正面内容，绝不能跟着降（误伤过）。
+    ok([...D.querySelectorAll('#chapterBody .tipq')].every(
+         e => /^(⚠️|〔存疑〕)/.test(e.textContent.trim())),
+       '降成小字的都是 ⚠️／〔存疑〕开头的待查段');
+    ok([...D.querySelectorAll('#chapterBody .tipq')].every(
+         e => !/^⭐/.test(e.textContent.trim())), '⭐ 要点段没有被误降');
     ok(D.querySelectorAll('#chapterBody .cmap .mapit').length <= 6,
        '地图最多列 6 条，不能占满一屏');
   }

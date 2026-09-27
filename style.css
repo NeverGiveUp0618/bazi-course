@@ -791,3 +791,20 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 /* 小字节里的提示框跟着降级，别在次要区里又抢眼 */
 .minorbody .tip{margin:8px 0;padding:6px 10px;background:transparent}
 .minorbody .tip p{font-size:13.5px}
+/* 待查／存疑的段落：留着，但降到次要——跟 .minorbody 一个待遇 */
+.doc .tipq{
+  border-left:2px dotted var(--line);background:transparent;
+  border-radius:0;padding:4px 0 4px 11px;margin:11px 0
+}
+.doc .tipq p{font-size:13.5px;line-height:1.75;color:var(--ink3)}
+.doc .tipq strong{color:var(--ink2);font-weight:600}
+
+/* ⚠️ 深色主题里 --indigo / --cinnabar 都是**亮色**（为了在深底上看得清），
+   白字压上去反而糊（实测对比度 2.4 / 2.8，远低于 4.5）。这两个填色小块
+   在深色下改用深色字。 */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .mhn,
+  :root:not([data-theme="light"]) .mhb2{ color:#14181b }
+}
+:root[data-theme="dark"] .mhn,
+:root[data-theme="dark"] .mhb2{ color:#14181b }
