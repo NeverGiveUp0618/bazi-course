@@ -793,8 +793,38 @@ const wait = () => new Promise(r => setTimeout(r, 30));
            `${L.extra.length} 个盘全在`);
         // 只有盘，不许混进题目的讲解正文
         ok(!box.querySelector('.doc'), '没有搬题目的断／解／拆解进来');
-        ok(box.textContent.replace(/[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时乾坤造命例\s\d·]/g, '')
-             .length < 30, '这一块基本只有盘和序号');
+        // 十神按「天地阴阳诀」定：地支取本气藏干的阴阳
+        {
+          const c0 = box.querySelector('.vqpan .vchart');
+          ok(c0.querySelectorAll('.ss').length === 8, '八个字都标了十神');
+          ok(c0.querySelector('.c.day .ss.me')?.textContent === '日主', '日干标「日主」');
+          const b = L.extra[0], me = b.gan[2];
+          const want = (m, x) => {
+            const BEN={子:'癸',丑:'己',寅:'甲',卯:'乙',辰:'戊',巳:'丙',午:'丁',未:'己',申:'庚',酉:'辛',戌:'戊',亥:'壬'};
+            const WXX={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+            const YA={甲:1,丙:1,戊:1,庚:1,壬:1,乙:0,丁:0,己:0,辛:0,癸:0};
+            const SH={木:'火',火:'土',土:'金',金:'水',水:'木'}, KE={木:'土',土:'水',水:'火',火:'金',金:'木'};
+            const g=BEN[x]||x, mw=WXX[m], w=WXX[g], same=YA[m]===YA[g];
+            if(w===mw) return same?'比肩':'劫财';
+            if(SH[mw]===w) return same?'食神':'伤官';
+            if(KE[mw]===w) return same?'偏财':'正财';
+            if(KE[w]===mw) return same?'七杀':'正官';
+            return same?'偏印':'正印';
+          };
+          const got = [...c0.querySelectorAll('.ss')].map(e => e.textContent);
+          const exp = [];
+          for (let i = 0; i < 4; i++) {
+            exp.push(i === 2 ? '日主' : want(me, b.gan[i]));
+            exp.push(want(me, b.zhi[i]));
+          }
+          ok(got.join('|') === exp.join('|'),
+             '十神算对了：' + b.gan.join('') + '/' + b.zhi.join('') + ' → ' + got.join(' '));
+        }
+        ok(box.textContent
+             .replace(/比肩|劫财|食神|伤官|偏财|正财|七杀|正官|偏印|正印|日主/g, '')
+             .replace(/原稿没抄下来，从题库补上|这一课的盘|题库命例/g, '')
+             .replace(/[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时乾坤造个\s\d·]/g, '')
+             .length < 10, '这一块只有盘、十神和序号，没有讲解正文');
       }
       // 盘在上、分析在下：补盘区必须排在课文前面
       {

@@ -169,6 +169,37 @@ function gz(c, cls) {
   return '<span class="' + cls + (WX[c] ? ' w-' + WX[c] : '') + '">' + esc(c) + '</span>';
 }
 
+/* ============================ 十神（天地阴阳诀）============================
+ * ⚠️⚠️ 地支的阴阳**必须**用第③套「天地阴阳诀」：寅申巳亥辰戌为阳、子午卯酉丑未为阴，
+ *      它与**藏干本气**的阴阳一致（寅=甲阳、子=癸阴…）。
+ *      通用命理那套「子寅辰午申戌为阳」是**查神煞**用的，拿来定十神必错：
+ *        甲日见子 —— 本体系【正印】，通用算法会算成偏印
+ *        甲日见午 —— 本体系【伤官】，通用算法会算成食神
+ *      出处：〔v课 · 第 676 讲〕⇒ 教材04 七·B「三套阴阳分法：各管各的」。
+ */
+var SS_BEN = { 子: '癸', 丑: '己', 寅: '甲', 卯: '乙', 辰: '戊', 巳: '丙',
+               午: '丁', 未: '己', 申: '庚', 酉: '辛', 戌: '戊', 亥: '壬' };
+var SS_WX  = { 甲: '木', 乙: '木', 丙: '火', 丁: '火', 戊: '土',
+               己: '土', 庚: '金', 辛: '金', 壬: '水', 癸: '水' };
+var SS_YANG = { 甲: 1, 丙: 1, 戊: 1, 庚: 1, 壬: 1, 乙: 0, 丁: 0, 己: 0, 辛: 0, 癸: 0 };
+var SS_SHENG = { 木: '火', 火: '土', 土: '金', 金: '水',水: '木' };
+var SS_KE    = { 木: '土', 土: '水', 水: '火', 火: '金', 金: '木' };
+
+/* 某个字（天干或地支）对日干是什么十神。日干自己返回「日主」。 */
+function shiShen(me, ch, isSelf) {
+  if (isSelf) return '日主';
+  var g = SS_BEN[ch] || ch;                 // 地支先换成本气藏干
+  var mw = SS_WX[me], w = SS_WX[g];
+  if (!mw || !w) return '';
+  var same = SS_YANG[me] === SS_YANG[g];    // 同性／异性
+  if (w === mw) return same ? '比肩' : '劫财';
+  if (SS_SHENG[mw] === w) return same ? '食神' : '伤官';
+  if (SS_KE[mw] === w) return same ? '偏财' : '正财';
+  if (SS_KE[w] === mw) return same ? '七杀' : '正官';
+  if (SS_SHENG[w] === mw) return same ? '偏印' : '正印';
+  return '';
+}
+
 /* ============================ 提示条 ============================ */
 var toastTimer = null;
 function toast(msg, actLabel, actFn) {
@@ -741,22 +772,31 @@ var VKE_OPEN = 'vkeOpenVol';
 
 function vkeChartHTML(b, idx) {
   var pos = ['年', '月', '日', '时'];
+  var me = b.gan[2];                       // 日干＝我
   return '<div class="vchart" data-ci="' + idx + '">' +
     '<span class="lb">' + esc(b.g) + '造</span>' +
     '<div class="cols">' + pos.map(function (p, i) {
       return '<div class="c' + (i === 2 ? ' day' : '') + '">' +
         '<div class="p">' + p + '</div>' +
         '<span class="a ' + wxCls(b.gan[i]) + '">' + b.gan[i] + '</span>' +
-        '<span class="b ' + wxCls(b.zhi[i]) + '">' + b.zhi[i] + '</span></div>';
+        '<span class="ss' + (i === 2 ? ' me' : '') + '">' +
+          shiShen(me, b.gan[i], i === 2) + '</span>' +
+        '<span class="b ' + wxCls(b.zhi[i]) + '">' + b.zhi[i] + '</span>' +
+        '<span class="ss">' + shiShen(me, b.zhi[i]) + '</span></div>';
     }).join('') + '</div>' +
     (b.note ? '<div class="note">' + esc(b.note) + '</div>' : '') + '</div>';
 }
 
-function vkeLuckHTML(b) {
+/* 大运。me＝这一段那个盘的日干；⚠️ 只有**同一段里有盘**时才传，
+   跨段去猜大运属于哪个盘会标错十神，宁可不标。 */
+function vkeLuckHTML(b, me) {
   return '<div class="vluck"><span class="lb">大运</span><div class="cols">' +
     b.gan.map(function (g, i) {
+      var z = b.zhi[i] || '';
       return '<div class="c"><span class="a ' + wxCls(g) + '">' + g + '</span>' +
-        '<span class="b ' + wxCls(b.zhi[i] || '') + '">' + (b.zhi[i] || '') + '</span></div>';
+        (me ? '<span class="ss">' + shiShen(me, g) + '</span>' : '') +
+        '<span class="b ' + wxCls(z) + '">' + z + '</span>' +
+        (me && z ? '<span class="ss">' + shiShen(me, z) + '</span>' : '') + '</div>';
     }).join('') + '</div></div>';
 }
 
@@ -786,7 +826,9 @@ RENDER.vke = function () {
       '<div class="muted" style="margin-top:6px;line-height:1.75">' +
       '全部 ' + V.nChart + ' 个命盘。⭐ <b>一个命例和它的分析永远在同一课里</b>——' +
       '原稿里有 ' + V.nFixed + ' 处分析被切到了下一段，已经接回去了。<br>' +
-      '⭐ 读的时候<b>盘钉在顶上</b>；讲解里提到、原稿没抄下来的盘，<b>补在课文末尾</b>（' + V.nExtra + ' 个）。</div>' +
+      '⭐ 读的时候<b>盘钉在顶上</b>；原稿没抄下来的盘，<b>补在课文最前面</b>（' + V.nExtra + ' 个）。<br>' +
+      '⭐ 盘上标了<b>十神</b>，按「<b>天地阴阳诀</b>」定——<b>寅申巳亥辰戌为阳、子午卯酉丑未为阴</b>（与藏干本气一致）。' +
+      '⚠️ 这与通用算法不同：<b>甲日见子是正印、见午是伤官</b>。</div>' +
       '<div class="vsrc tap" id="vsrcTog">课号对照（要回查原始材料时展开）▸</div>' +
       '<div class="vsrcbox" id="vsrcBox"><div class="muted" style="font-size:12.5px;line-height:1.9">' +
       V.lessons.filter(function (L) { return L.src.length; }).map(function (L) {
@@ -827,8 +869,9 @@ RENDER.vkeread = function (key) {
     var ex = L.extra || [];
     var ci = ex.length - 1;          // 课文里的盘接着 extra 往下编号
     var html = L.segs.map(function (sg) {
+      var me = sg.chart ? sg.chart.gan[2] : null;
       var inner = sg.blocks.map(function (b) {
-        if (b.t === 'luck') return vkeLuckHTML(b);
+        if (b.t === 'luck') return vkeLuckHTML(b, me);
         if (b.t === 'head') return '<h3 class="vh">' + esc(b.s) + '</h3>';
         return '<p class="vp' + (b.star ? ' star' : '') + '">' + b.s + '</p>';
       }).join('');
