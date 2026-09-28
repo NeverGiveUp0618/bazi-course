@@ -771,16 +771,17 @@ RENDER.desk = function () {
 var VKE_OPEN = 'vkeOpenVol';
 
 function vkeChartHTML(b, idx) {
-  var pos = ['年', '月', '日', '时'];
   var me = b.gan[2];                       // 日干＝我
+  // 从上到下：十神 · 天干 · 地支 · 十神。
+  // ⚠️ 不再标「年月日时」——四柱顺序本来就是固定的，那一行占了位置还分散注意；
+  //    日柱那一格直接写「日主」，位置就认出来了。
   return '<div class="vchart" data-ci="' + idx + '">' +
     '<span class="lb">' + esc(b.g) + '造</span>' +
-    '<div class="cols">' + pos.map(function (p, i) {
+    '<div class="cols">' + [0, 1, 2, 3].map(function (i) {
       return '<div class="c' + (i === 2 ? ' day' : '') + '">' +
-        '<div class="p">' + p + '</div>' +
-        '<span class="a ' + wxCls(b.gan[i]) + '">' + b.gan[i] + '</span>' +
         '<span class="ss' + (i === 2 ? ' me' : '') + '">' +
           shiShen(me, b.gan[i], i === 2) + '</span>' +
+        '<span class="a ' + wxCls(b.gan[i]) + '">' + b.gan[i] + '</span>' +
         '<span class="b ' + wxCls(b.zhi[i]) + '">' + b.zhi[i] + '</span>' +
         '<span class="ss">' + shiShen(me, b.zhi[i]) + '</span></div>';
     }).join('') + '</div>' +
@@ -793,8 +794,9 @@ function vkeLuckHTML(b, me) {
   return '<div class="vluck"><span class="lb">大运</span><div class="cols">' +
     b.gan.map(function (g, i) {
       var z = b.zhi[i] || '';
-      return '<div class="c"><span class="a ' + wxCls(g) + '">' + g + '</span>' +
+      return '<div class="c">' +
         (me ? '<span class="ss">' + shiShen(me, g) + '</span>' : '') +
+        '<span class="a ' + wxCls(g) + '">' + g + '</span>' +
         '<span class="b ' + wxCls(z) + '">' + z + '</span>' +
         (me && z ? '<span class="ss">' + shiShen(me, z) + '</span>' : '') + '</div>';
     }).join('') + '</div></div>';
