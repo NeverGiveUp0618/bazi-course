@@ -382,6 +382,34 @@ def _lecture_to_quiz(quiz_items):
     return {k: sorted(set(v)) for k, v in m.items()}
 
 
+def build_vkeq(quiz_items, vke):
+    """v课笔记里要**就地展开**的命例。
+
+    用户的原话：「看命例还得跳转，我不想跳转」——所以讲解读到哪，
+    对应的命例就摊在哪，不再只给一个跳去题库的链接。
+
+    ⚠️ 单独成文件而不是塞进 data-vke.js：列表页只需要 data-vke（250KB），
+       命例正文另外 400 来 KB，等真进到某一课再拉。
+    ⚠️ 只带**看**得到的字段：text 是全文检索用的副本（92KB），tags/topic
+       在这儿没有入口，都不带。
+    """
+    want = sorted({n for L in vke['lessons'] for n in L['q']})
+    by_n = {q['n']: q for q in quiz_items}
+    out = {}
+    for n in want:
+        q = by_n.get(n)
+        if not q:
+            continue
+        out[str(n)] = {
+            'n': n, 'seq': q.get('seq'), 'title': q.get('title', ''),
+            'star': q.get('star', 0),
+            'face': q.get('face', ''), 'jie': q.get('jie', ''),
+            'jieLabel': q.get('jieLabel', '解'), 'chai': q.get('chai', ''),
+            'noAnswer': q.get('noAnswer', False),
+        }
+    return out
+
+
 def build_vke(quiz_items):
     """v课听课笔记 —— 重排成「课」。
 
@@ -580,6 +608,7 @@ def main():
     index_md = read(os.path.join(SRC, '00-问题清单.md'))
     desk = build_desk()
     vke = build_vke(quiz['items'])
+    vkeq = build_vkeq(quiz['items'], vke)
     outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
 
     meta = {
@@ -608,6 +637,8 @@ def main():
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
         # v课笔记原文（三卷 20 万字）同样按需加载
         ('data-vke.js', write_js('data-vke.js', 'DATA_VKE', vke)),
+        # 课里就地展开的命例正文，进到某一课才拉
+        ('data-vkeq.js', write_js('data-vkeq.js', 'DATA_VKEQ', vkeq)),
     ]
 
     print('== 构建完成 ==')

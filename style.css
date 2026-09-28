@@ -685,10 +685,6 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .vbody .vp.star{padding-left:11px; border-left:2px solid color-mix(in srgb,var(--indigo) 45%, transparent)}
 .vqs{margin-bottom:12px}
 
-.vqchip{display:inline-block; padding:5px 11px; border-radius:999px; font-size:12.5px; font-weight:600;
-  background:color-mix(in srgb,var(--indigo) 15%, transparent); color:var(--indigo);
-  border:1px solid color-mix(in srgb,var(--indigo) 32%, transparent); cursor:pointer}
-.vqchip:active{background:color-mix(in srgb,var(--indigo) 26%, transparent)}
 
 /* ---------- 讲解手册模式（教材 16 章） ----------
    痛点是"从上看到下一个样，看得头晕"。所以只做一件事：把层级做出落差。
@@ -808,3 +804,40 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 }
 :root[data-theme="dark"] .mhn,
 :root[data-theme="dark"] .mhb2{ color:#14181b }
+
+/* ---------- v课课文里就地展开的命例 ----------
+   用户：「看命例还得跳转，我不想跳转」⇒ 断／解／拆解一次摊开，不设按钮。
+   与课文拉开距离：整块退到卡片里，命例之间用细线分隔。 */
+.vqbox{
+  margin:22px 0 0;padding:14px 15px 4px;
+  background:var(--bg2);border:1px solid var(--line);border-radius:14px
+}
+.vqtt{
+  font-family:Georgia,"Songti SC",serif;font-size:14px;font-weight:700;
+  color:var(--indigo);letter-spacing:1px;margin-bottom:4px
+}
+.vqcase{padding:12px 0 14px;border-top:1px solid var(--line);margin-top:10px}
+.vqcase:first-of-type{border-top:0;margin-top:0;padding-top:2px}
+.vqh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px}
+.vqn{
+  flex:none;font-family:Georgia,serif;font-size:12px;font-weight:700;color:#fff;
+  background:var(--indigo);border-radius:6px;padding:2px 8px
+}
+.vqname{flex:1 1 auto;min-width:0;font-size:15px;font-weight:600;color:var(--ink)}
+.vqstar{
+  flex:none;font-size:11px;font-weight:600;padding:1px 7px;border-radius:6px;
+  color:var(--cinnabar);border:1px solid color-mix(in srgb,var(--cinnabar) 35%,transparent)
+}
+.vqlab{
+  font-size:12px;font-weight:600;color:var(--ink3);letter-spacing:.5px;
+  margin:12px 0 4px;padding-left:9px;border-left:3px solid var(--indigo)
+}
+.vqlab2{border-left-color:var(--line)}
+.vqnote{font-weight:400;margin-left:7px;color:var(--ink3);opacity:.85}
+.vqbox .doc{font-size:15px;line-height:1.8}
+.vqbox .doc p{margin:7px 0}
+.vqchai{color:var(--ink2)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .vqn{color:#14181b}
+}
+:root[data-theme="dark"] .vqn{color:#14181b}

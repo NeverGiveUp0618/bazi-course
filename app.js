@@ -75,6 +75,16 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
+/* v课课文里就地展开的命例。题库若已经载过（3.5MB 那份），直接拿它用，
+   别再为同样的东西多下 700KB。 */
+var needVkeQ = function () {
+  if (window.DATA_QUIZ) {
+    var m = {};
+    window.DATA_QUIZ.items.forEach(function (q) { m[q.n] = q; });
+    return Promise.resolve(m);
+  }
+  return need('data-vkeq.js', 'DATA_VKEQ');
+};
 
 /* ============================ 路由 ============================
  * 套壳(view.html)里 iframe 与顶层共享同一条 session history。
@@ -786,7 +796,7 @@ RENDER.vke = function () {
       '<div class="muted" style="margin-top:6px;line-height:1.75">' +
       '全部 ' + V.nChart + ' 个命盘。⭐ <b>一个命例和它的分析永远在同一课里</b>——' +
       '原稿里有 ' + V.nFixed + ' 处分析被切到了下一段，已经接回去了。<br>' +
-      '⭐ 读的时候<b>盘钉在顶上</b>；出过命例题的课，标题右边显示<b>「例 N」</b>，点开能跳过去对照。</div>' +
+      '⭐ 读的时候<b>盘钉在顶上</b>；讲到的命例<b>直接摊在课文后面</b>——断、解、拆解都在，不用跳走。</div>' +
       '<div class="vsrc tap" id="vsrcTog">课号对照（要回查原始材料时展开）▸</div>' +
       '<div class="vsrcbox" id="vsrcBox"><div class="muted" style="font-size:12.5px;line-height:1.9">' +
       V.lessons.filter(function (L) { return L.src.length; }).map(function (L) {
@@ -806,8 +816,8 @@ RENDER.vke = function () {
             return '<div class="vrow tap" data-lec="' + L.k + '">' +
               '<span class="vn">' + L.k + '</span>' +
               '<span class="vs">' + esc(vkeSummary(L)) + '</span>' +
-              (L.nChart ? '<span class="vc">' + L.nChart + '例</span>' : '') +
-              (q ? '<span class="vq">题 ' + q + '</span>' : '') + '</div>';
+              (L.nChart ? '<span class="vc">' + L.nChart + ' 盘</span>' : '') +
+              (q ? '<span class="vq">' + q + ' 例</span>' : '') + '</div>';
           }).join('') + '</div></div>';
       }).join('');
   });
@@ -838,12 +848,9 @@ RENDER.vkeread = function (key) {
 
     var q = L.q || [];
     body.innerHTML =
-      (q.length ? '<div class="card vqs"><b style="font-size:14px">这一课出过 ' + q.length + ' 道命例题</b>' +
-        '<div class="muted" style="margin-top:3px;font-size:12.5px">点开对照着看——题里有拆解和出处</div>' +
-        '<div class="row wrap" style="gap:7px;margin-top:9px">' +
-        q.map(function (n) { return '<span class="vqchip tap" data-q="' + n + '">题 ' + n + ' ›</span>'; }).join('') +
-        '</div></div>' : '') +
       '<div class="vbody">' + html + '</div>' +
+      (q.length ? '<div id="vkeQ" class="muted pad" style="margin-top:20px">' +
+        '正在取这一课的 ' + q.length + ' 个命例…</div>' : '') +
       '<div class="row spread pad" style="margin-top:18px">' +
       (k > 1 ? '<span class="chip tap" data-lec="' + (k - 1) + '">‹ 第 ' + (k - 1) + ' 课</span>' : '<span></span>') +
       (k < V.nLesson ? '<span class="chip tap" data-lec="' + (k + 1) + '">第 ' + (k + 1) + ' 课 ›</span>' : '<span></span>') +
@@ -855,6 +862,35 @@ RENDER.vkeread = function (key) {
       : '';
     pan.classList.toggle('hide', !charts.length);
     vkeStartSpy();
+
+    if (q.length) needVkeQ().then(function (M) {
+      var box = $('#vkeQ');
+      if (!box) return;                     // 已经翻到别的课了
+      var got = q.map(function (n) { return M[n]; }).filter(Boolean);
+      if (!got.length) { box.remove(); return; }
+      box.className = 'vqbox';
+      box.innerHTML =
+        '<div class="vqtt">这一课的命例 · ' + got.length + ' 例</div>' +
+        got.map(function (it) {
+          var h = '<div class="vqcase">' +
+            '<div class="vqh"><span class="vqn">命例 ' + (it.seq || it.n) + '</span>' +
+            '<span class="vqname">' + esc(it.title) + '</span>' +
+            (it.star ? '<span class="vqstar">精读</span>' : '') + '</div>' +
+            '<div class="doc">' + it.face + '</div>';
+          if (it.jie) {
+            h += '<div class="vqlab">' + esc(it.noAnswer ? '提示方向' : it.jieLabel || '解') + '</div>' +
+              '<div class="doc vqjie">' +
+              (it.noAnswer ? '<p class="muted">⚠️ 原书未给解，这是反推题——只有方向，没有答案。</p>' : '') +
+              it.jie + '</div>';
+          }
+          if (it.chai) {
+            h += '<div class="vqlab vqlab2">拆解<span class="vqnote">我补的推理，非原文，可推翻</span></div>' +
+              '<div class="doc vqchai">' + it.chai + '</div>';
+          }
+          return h + '</div>';
+        }).join('');
+      bindDoc(box);
+    });
   });
 };
 
@@ -1517,8 +1553,6 @@ document.addEventListener('click', function (e) {
   }
   var row = e.target.closest && e.target.closest('[data-lec]');
   if (row) { show('vkeread', row.dataset.lec); window.scrollTo(0, 0); return; }
-  var qc = e.target.closest && e.target.closest('.vqchip');
-  if (qc) { show('quiz', +qc.dataset.q); }
 });
 $('#q').addEventListener('input', function () {
   clearTimeout(window._st);

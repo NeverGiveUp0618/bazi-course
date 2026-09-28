@@ -25,6 +25,7 @@ run('data/data-quiz.js');
 run('data/data-index.js');
 run('data/data-desk.js');
 run('data/data-vke.js');   // ⚠️ 新增数据文件必须同步到这份清单，否则按需加载在 jsdom 里拿不到
+run('data/data-vkeq.js');
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -765,6 +766,31 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(/^第 \d+ 课$/.test($('#ttl').textContent), `标题是「${$('#ttl').textContent}」——不露原始讲次`);
     ok($('#vkeBody').innerHTML.length > 200, '阅读页有正文');
     ok($('#vkeBody').innerHTML.includes('vsegh'), '命例分了组（盘和它的分析包在一起）');
+
+    // 用户：「看命例还得跳转，我不想跳转」⇒ 命例正文必须就地摊开在课里
+    {
+      const V2 = window.DATA_VKE;
+      const withQ = V2.lessons.filter(x => x.q && x.q.length);
+      ok(withQ.length >= 100, `${withQ.length} 课挂着命例（基线 100）`);
+      // 当前这一课若挂了命例就直接查它；没挂就在「中」篇里点一个挂了的
+      let k = +($('#ttl').textContent.match(/\d+/) || [0])[0];
+      if (!V2.lessons.some(x => x.k === k && x.q.length)) {
+        const alt = D.querySelector('.vvol[data-vol="中"] .vrow .vq');
+        if (alt) { alt.closest('.vrow').click(); await wait(); await wait();
+                   k = +($('#ttl').textContent.match(/\d+/) || [0])[0]; }
+      }
+      const L = V2.lessons.find(x => x.k === k) || withQ[0];
+      const box = D.querySelector('#vkeBody .vqbox');
+      ok(!!box, '第 ' + L.k + ' 课的命例就地展开了');
+      if (box) {
+        ok(D.querySelectorAll('#vkeBody .vqcase').length === L.q.length,
+           `${L.q.length} 个命例全在页面上`);
+        ok(/class="vqlab"/.test(box.innerHTML), '「解」直接摊开，不用点按钮');
+        ok(box.textContent.length > 200, '命例正文有内容（' + box.textContent.length + ' 字）');
+      }
+      ok(!D.querySelector('#vkeBody .vqchip'), '不再有跳去题库的链接');
+      ok(!/DATA_VKEQ_MISSING/.test($('#vkeBody').innerHTML), '命例数据取到了');
+    }
     const c1 = D.querySelector('#vkeBody .vchart .a');
     ok(c1 && /w-(mu|huo|tu|jin|shui)/.test(c1.className), '盘上的天干有五行色');
   }
