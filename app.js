@@ -821,7 +821,11 @@ RENDER.vkeread = function (key) {
     if (!L) return;
     $('#ttl').textContent = '第 ' + L.k + ' 课';
 
-    var ci = -1;
+    // 盘在上、分析在下 —— 断命就是这个顺序。原稿没抄盘的那些命例，
+    // 盘补在**课文最前面**，不是末尾；它们也一起进吸顶条，
+    // 否则往下读分析时又得往回翻。
+    var ex = L.extra || [];
+    var ci = ex.length - 1;          // 课文里的盘接着 extra 往下编号
     var html = L.segs.map(function (sg) {
       var inner = sg.blocks.map(function (b) {
         if (b.t === 'luck') return vkeLuckHTML(b);
@@ -830,26 +834,30 @@ RENDER.vkeread = function (key) {
       }).join('');
       if (!sg.chart) return '<div class="vseg plain">' + inner + '</div>';
       ci++;
-      return '<div class="vseg"><div class="vsegh">命例 ' + (ci + 1) +
+      return '<div class="vseg"><div class="vsegh">命例 ' + (ci - ex.length + 1) +
         (sg.chart.note ? ' · ' + esc(sg.chart.note) : '') + '</div>' +
         vkeChartHTML(sg.chart, ci) + inner + '</div>';
     }).join('');
 
-    var ex = L.extra || [];
     body.innerHTML =
-      '<div class="vbody">' + html + '</div>' +
-      (ex.length ? '<div class="vqbox"><div class="vqtt">讲解里提到、上面没抄下来的盘 · ' +
-        ex.length + ' 个</div><div class="vqpans">' +
+      (ex.length ? '<div class="vqbox"><div class="vqtt">这一课的盘 · ' +
+        ex.length + ' 个<span class="vqwhy">原稿没抄下来，从题库补上</span></div>' +
+        '<div class="vqpans">' +
         ex.map(function (b, i) {
-          return '<div class="vqpan">' + vkeChartHTML(b, 'x' + i) +
-            '<span class="vqsq">命例 ' + (b.seq || b.n) + '</span></div>';
+          return '<div class="vqpan">' + vkeChartHTML(b, i) +
+            // ⚠️ 标「题库」两个字：课文里的盘用的是课内序号（命例 1、2…），
+            //    这里用的是题库的命例号，不标清楚两套编号会看混。
+            '<span class="vqsq">题库命例 ' + (b.seq || b.n) + '</span></div>';
         }).join('') + '</div></div>' : '') +
+      '<div class="vbody">' + html + '</div>' +
       '<div class="row spread pad" style="margin-top:18px">' +
       (k > 1 ? '<span class="chip tap" data-lec="' + (k - 1) + '">‹ 第 ' + (k - 1) + ' 课</span>' : '<span></span>') +
       (k < V.nLesson ? '<span class="chip tap" data-lec="' + (k + 1) + '">第 ' + (k + 1) + ' 课 ›</span>' : '<span></span>') +
       '</div>';
 
-    var charts = L.segs.filter(function (sg) { return sg.chart; }).map(function (sg) { return sg.chart; });
+    // 吸顶条按**页面顺序**：先补上来的那几个，再课文里的
+    var charts = ex.concat(
+      L.segs.filter(function (sg) { return sg.chart; }).map(function (sg) { return sg.chart; }));
     pan.innerHTML = charts.length
       ? '<div class="vpanin">' + charts.map(function (b, i) { return vkeChartHTML(b, i); }).join('') + '</div>'
       : '';
@@ -865,9 +873,9 @@ function vkeStartSpy() {
   vkeStopSpy();
   var pan = $('#vkePan'); if (!pan || pan.classList.contains('hide')) return;
   var mark = function () {
-    // ⚠️ 只认**课文里**的盘。课末尾补的那些盘也是 .vchart，
-    //    跟进来会让吸顶条在翻到底时乱跳。
-    var cs = $$('#vkeBody .vbody .vchart'), top = 120, at = 0;
+    // 页面上所有的盘，按文档顺序 —— 补在最前面的那几个也算，
+    // 它们在页面上有实际位置，吸顶条要跟着走。
+    var cs = $$('#vkeBody .vchart'), top = 120, at = 0;
     for (var i = 0; i < cs.length; i++) {
       if (cs[i].getBoundingClientRect().top <= top) at = i; else break;
     }

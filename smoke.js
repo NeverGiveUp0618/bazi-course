@@ -796,9 +796,22 @@ const wait = () => new Promise(r => setTimeout(r, 30));
         ok(box.textContent.replace(/[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时乾坤造命例\s\d·]/g, '')
              .length < 30, '这一块基本只有盘和序号');
       }
-      // 补的盘不能被吸顶跟随算进去
-      ok(D.querySelectorAll('#vkeBody .vbody .vchart').length === L.nChart,
-         '吸顶跟随只认课文里的盘');
+      // 盘在上、分析在下：补盘区必须排在课文前面
+      {
+        const all = [...D.querySelectorAll('#vkeBody .vqbox, #vkeBody .vbody')];
+        ok(all.length === 2 && all[0].classList.contains('vqbox'),
+           '补的盘排在课文前面，不是末尾');
+        const first = D.querySelector('#vkeBody .vchart');
+        ok(first && first.closest('.vqbox'), '页面第一个盘就是补上来的那个');
+        // 吸顶条要把补的盘也带上，否则往下读分析时盘就看不见了
+        ok(D.querySelectorAll('#vkePan .vchart').length === L.extra.length + L.nChart,
+           `吸顶条 ${L.extra.length + L.nChart} 个盘＝补的 ${L.extra.length} ＋课文 ${L.nChart}`);
+        // 页面盘的顺序＝吸顶条的顺序（spy 靠下标对应，错位就会高亮错盘）
+        const pg = [...D.querySelectorAll('#vkeBody .vchart')].map(e => e.textContent.replace(/\s/g, ''));
+        const tp = [...D.querySelectorAll('#vkePan .vchart')].map(e => e.textContent.replace(/\s/g, ''));
+        ok(pg.length === tp.length && pg.every((v, i) => v === tp[i]),
+           '页面里盘的顺序和吸顶条一一对应');
+      }
     }
     const c1 = D.querySelector('#vkeBody .vchart .a');
     ok(c1 && /w-(mu|huo|tu|jin|shui)/.test(c1.className), '盘上的天干有五行色');
