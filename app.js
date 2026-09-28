@@ -872,7 +872,7 @@ RENDER.vkeread = function (key) {
       box.innerHTML =
         '<div class="vqtt">这一课的命例 · ' + got.length + ' 例</div>' +
         got.map(function (it) {
-          var h = '<div class="vqcase">' +
+          var h = '<div class="vqcase" data-qn="' + it.n + '">' +
             '<div class="vqh"><span class="vqn">命例 ' + (it.seq || it.n) + '</span>' +
             '<span class="vqname">' + esc(it.title) + '</span>' +
             (it.star ? '<span class="vqstar">精读</span>' : '') + '</div>' +
@@ -889,7 +889,34 @@ RENDER.vkeread = function (key) {
           }
           return h + '</div>';
         }).join('');
-      bindDoc(box);
+
+      /* 正文里引到的题，如果本来就摊在这一页，就别再跳出去了 ——
+         用户要的就是不跳转。指向别处的照旧跳题库；引到自己的直接不给点。 */
+      var here = {};
+      got.forEach(function (it) { here[it.n] = 1; });
+      $$('a.qref', box).forEach(function (a) {
+        var to = +a.dataset.q;
+        if (!here[to]) return;                       // 不在本页，留给 bindDoc
+        var own = a.closest('.vqcase');
+        a.classList.remove('qref');
+        if (own && +own.dataset.qn === to) {         // 引到的就是它自己
+          a.className = 'qself';
+        } else {
+          a.className = 'qjump';
+          a.dataset.to = to;
+        }
+      });
+      bindDoc(box);                                  // 这时 qref 只剩指向别处的
+      $$('.qjump', box).forEach(function (a) {
+        a.onclick = function () {
+          var el = box.querySelector('.vqcase[data-qn="' + a.dataset.to + '"]');
+          if (!el) return;
+          try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+          catch (e) { el.scrollIntoView(); }
+          el.classList.add('vqhit');
+          setTimeout(function () { el.classList.remove('vqhit'); }, 1400);
+        };
+      });
     });
   });
 };

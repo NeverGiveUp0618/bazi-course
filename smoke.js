@@ -789,6 +789,16 @@ const wait = () => new Promise(r => setTimeout(r, 30));
         ok(box.textContent.length > 200, '命例正文有内容（' + box.textContent.length + ' 字）');
       }
       ok(!D.querySelector('#vkeBody .vqchip'), '不再有跳去题库的链接');
+      // 正文里引到的题若本来就摊在这一页，必须就地滚过去，不许跳出去
+      {
+        const bx = D.querySelector('#vkeBody .vqbox');
+        const stray = bx ? [...bx.querySelectorAll('a.qref')].filter(
+          a => bx.querySelector('.vqcase[data-qn="' + a.dataset.q + '"]')) : [];
+        ok(stray.length === 0, '指向本页命例的链接没有一个还是跳转型');
+        ok([...(bx ? bx.querySelectorAll('.qjump') : [])].every(
+          a => bx.querySelector('.vqcase[data-qn="' + a.dataset.to + '"]')),
+          '页内滚动的目标都在本页');
+      }
       ok(!/DATA_VKEQ_MISSING/.test($('#vkeBody').innerHTML), '命例数据取到了');
     }
     const c1 = D.querySelector('#vkeBody .vchart .a');
