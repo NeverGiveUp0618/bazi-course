@@ -25,7 +25,6 @@ run('data/data-quiz.js');
 run('data/data-index.js');
 run('data/data-desk.js');
 run('data/data-vke.js');   // ⚠️ 新增数据文件必须同步到这份清单，否则按需加载在 jsdom 里拿不到
-run('data/data-vkeq.js');
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -767,39 +766,39 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok($('#vkeBody').innerHTML.length > 200, '阅读页有正文');
     ok($('#vkeBody').innerHTML.includes('vsegh'), '命例分了组（盘和它的分析包在一起）');
 
-    // 用户：「看命例还得跳转，我不想跳转」⇒ 命例正文必须就地摊开在课里
+    // 用户：「这里就是 v课原本的讲解加上命盘就行，讲解我会在题库里学」
+    //  ⇒ 课末尾只补**盘**，不搬题目的断／解／拆解。
     {
       const V2 = window.DATA_VKE;
-      const withQ = V2.lessons.filter(x => x.q && x.q.length);
-      ok(withQ.length >= 100, `${withQ.length} 课挂着命例（基线 100）`);
-      // 当前这一课若挂了命例就直接查它；没挂就在「中」篇里点一个挂了的
-      let k = +($('#ttl').textContent.match(/\d+/) || [0])[0];
-      if (!V2.lessons.some(x => x.k === k && x.q.length)) {
-        const alt = D.querySelector('.vvol[data-vol="中"] .vrow .vq');
-        if (alt) { alt.closest('.vrow').click(); await wait(); await wait();
-                   k = +($('#ttl').textContent.match(/\d+/) || [0])[0]; }
-      }
-      const L = V2.lessons.find(x => x.k === k) || withQ[0];
+      const withEx = V2.lessons.filter(x => x.extra && x.extra.length);
+      ok(withEx.length >= 60, `${withEx.length} 课补了盘（基线 60）`);
+      ok(V2.nExtra >= 100, `补进去 ${V2.nExtra} 个盘（基线 100）`);
+      ok(withEx.filter(x => !x.nChart).length >= 20,
+         `其中 ${withEx.filter(x => !x.nChart).length} 课原本一个盘都没有`);
+      // 补的盘不能与课文里已有的重复
+      const dup = V2.lessons.filter(L => {
+        const mine = new Set(L.segs.filter(s => s.chart)
+          .map(s => s.chart.gan.join('') + s.chart.zhi.join('')));
+        return (L.extra || []).some(b => mine.has(b.gan.join('') + b.zhi.join('')));
+      });
+      ok(dup.length === 0, '补的盘没有和课文里的重复');
+
+      const L = withEx[0];
+      const row = D.querySelector('[data-lec="' + L.k + '"]');
+      if (row) { row.click(); await wait(); await wait(); }
       const box = D.querySelector('#vkeBody .vqbox');
-      ok(!!box, '第 ' + L.k + ' 课的命例就地展开了');
+      ok(!!box, '第 ' + L.k + ' 课末尾补上了盘');
       if (box) {
-        ok(D.querySelectorAll('#vkeBody .vqcase').length === L.q.length,
-           `${L.q.length} 个命例全在页面上`);
-        ok(/class="vqlab"/.test(box.innerHTML), '「解」直接摊开，不用点按钮');
-        ok(box.textContent.length > 200, '命例正文有内容（' + box.textContent.length + ' 字）');
+        ok(box.querySelectorAll('.vqpan .vchart').length === L.extra.length,
+           `${L.extra.length} 个盘全在`);
+        // 只有盘，不许混进题目的讲解正文
+        ok(!box.querySelector('.doc'), '没有搬题目的断／解／拆解进来');
+        ok(box.textContent.replace(/[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时乾坤造命例\s\d·]/g, '')
+             .length < 30, '这一块基本只有盘和序号');
       }
-      ok(!D.querySelector('#vkeBody .vqchip'), '不再有跳去题库的链接');
-      // 正文里引到的题若本来就摊在这一页，必须就地滚过去，不许跳出去
-      {
-        const bx = D.querySelector('#vkeBody .vqbox');
-        const stray = bx ? [...bx.querySelectorAll('a.qref')].filter(
-          a => bx.querySelector('.vqcase[data-qn="' + a.dataset.q + '"]')) : [];
-        ok(stray.length === 0, '指向本页命例的链接没有一个还是跳转型');
-        ok([...(bx ? bx.querySelectorAll('.qjump') : [])].every(
-          a => bx.querySelector('.vqcase[data-qn="' + a.dataset.to + '"]')),
-          '页内滚动的目标都在本页');
-      }
-      ok(!/DATA_VKEQ_MISSING/.test($('#vkeBody').innerHTML), '命例数据取到了');
+      // 补的盘不能被吸顶跟随算进去
+      ok(D.querySelectorAll('#vkeBody .vbody .vchart').length === L.nChart,
+         '吸顶跟随只认课文里的盘');
     }
     const c1 = D.querySelector('#vkeBody .vchart .a');
     ok(c1 && /w-(mu|huo|tu|jin|shui)/.test(c1.className), '盘上的天干有五行色');

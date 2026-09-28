@@ -805,56 +805,23 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 :root[data-theme="dark"] .mhn,
 :root[data-theme="dark"] .mhb2{ color:#14181b }
 
-/* ---------- v课课文里就地展开的命例 ----------
-   用户：「看命例还得跳转，我不想跳转」⇒ 断／解／拆解一次摊开，不设按钮。
-   与课文拉开距离：整块退到卡片里，命例之间用细线分隔。 */
+}
+
+/* ---------- 课末尾补的盘 ----------
+   用户：「这里就是 v课原本的讲解加上命盘就行，讲解我会在题库里学」。
+   所以只摆盘，不搬题目的断／解／拆解。 */
 .vqbox{
-  margin:22px 0 0;padding:14px 15px 4px;
+  margin:22px 0 0;padding:13px 14px;
   background:var(--bg2);border:1px solid var(--line);border-radius:14px
 }
 .vqtt{
-  font-family:Georgia,"Songti SC",serif;font-size:14px;font-weight:700;
-  color:var(--indigo);letter-spacing:1px;margin-bottom:4px
+  font-family:Georgia,"Songti SC",serif;font-size:13.5px;font-weight:700;
+  color:var(--indigo);letter-spacing:.8px;margin-bottom:10px
 }
-.vqcase{padding:12px 0 14px;border-top:1px solid var(--line);margin-top:10px}
-.vqcase:first-of-type{border-top:0;margin-top:0;padding-top:2px}
-.vqh{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:7px}
-.vqn{
-  flex:none;font-family:Georgia,serif;font-size:12px;font-weight:700;color:#fff;
-  background:var(--indigo);border-radius:6px;padding:2px 8px
-}
-.vqname{flex:1 1 auto;min-width:0;font-size:15px;font-weight:600;color:var(--ink)}
-.vqstar{
-  flex:none;font-size:11px;font-weight:600;padding:1px 7px;border-radius:6px;
-  color:var(--cinnabar);border:1px solid color-mix(in srgb,var(--cinnabar) 35%,transparent)
-}
-/* ⚠️ 这两个别用 --ink3：它在浅底上只有 2.8 的对比度，而「解／拆解」是
-   分段标识、「非原文」是必须看清的提示，不是可有可无的灰字。 */
-.vqlab{
-  font-size:12px;font-weight:600;color:var(--ink2);letter-spacing:.5px;
-  margin:12px 0 4px;padding-left:9px;border-left:3px solid var(--indigo)
-}
-.vqlab2{border-left-color:var(--line)}
-.vqnote{font-weight:400;margin-left:7px;color:var(--ink2)}
-.vqbox .doc{font-size:15px;line-height:1.8}
-.vqbox .doc p{margin:7px 0}
-.vqchai{color:var(--ink2)}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .vqn{color:#14181b}
-}
-:root[data-theme="dark"] .vqn{color:#14181b}
-/* 命例之间的互引：同一页里的就地滚过去，不跳走 */
-.vqcase{scroll-margin-top:128px}
-.qjump{
-  color:var(--indigo2);cursor:pointer;
-  border-bottom:1px dashed var(--indigo2)
-}
-.qself{color:var(--ink2);font-weight:600}   /* 引到的就是它自己，不给点 */
-.vqhit{
-  animation:vqhit 1.4s ease-out;
-  border-radius:10px
-}
-@keyframes vqhit{
-  from{background:color-mix(in srgb,var(--indigo) 22%,transparent)}
-  to{background:transparent}
+.vqpans{display:flex;flex-wrap:wrap;gap:10px}
+.vqpan{position:relative;flex:0 0 auto}
+.vqpan .vchart{margin:0}
+.vqsq{
+  display:block;text-align:center;margin-top:3px;
+  font-size:11px;color:var(--ink3);letter-spacing:.3px
 }

@@ -75,16 +75,6 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
-/* v课课文里就地展开的命例。题库若已经载过（3.5MB 那份），直接拿它用，
-   别再为同样的东西多下 700KB。 */
-var needVkeQ = function () {
-  if (window.DATA_QUIZ) {
-    var m = {};
-    window.DATA_QUIZ.items.forEach(function (q) { m[q.n] = q; });
-    return Promise.resolve(m);
-  }
-  return need('data-vkeq.js', 'DATA_VKEQ');
-};
 
 /* ============================ 路由 ============================
  * 套壳(view.html)里 iframe 与顶层共享同一条 session history。
@@ -796,7 +786,7 @@ RENDER.vke = function () {
       '<div class="muted" style="margin-top:6px;line-height:1.75">' +
       '全部 ' + V.nChart + ' 个命盘。⭐ <b>一个命例和它的分析永远在同一课里</b>——' +
       '原稿里有 ' + V.nFixed + ' 处分析被切到了下一段，已经接回去了。<br>' +
-      '⭐ 读的时候<b>盘钉在顶上</b>；讲到的命例<b>直接摊在课文后面</b>——断、解、拆解都在，不用跳走。</div>' +
+      '⭐ 读的时候<b>盘钉在顶上</b>；讲解里提到、原稿没抄下来的盘，<b>补在课文末尾</b>（' + V.nExtra + ' 个）。</div>' +
       '<div class="vsrc tap" id="vsrcTog">课号对照（要回查原始材料时展开）▸</div>' +
       '<div class="vsrcbox" id="vsrcBox"><div class="muted" style="font-size:12.5px;line-height:1.9">' +
       V.lessons.filter(function (L) { return L.src.length; }).map(function (L) {
@@ -812,12 +802,11 @@ RENDER.vke = function () {
           '<div class="muted" style="margin-top:2px">' + ls.length + ' 课 · ' + ch + ' 个命盘</div></div>' +
           '<span class="vcar">' + (on ? '▾' : '▸') + '</span></div>' +
           '<div class="vlist">' + ls.map(function (L) {
-            var q = (L.q || []).length;
             return '<div class="vrow tap" data-lec="' + L.k + '">' +
               '<span class="vn">' + L.k + '</span>' +
               '<span class="vs">' + esc(vkeSummary(L)) + '</span>' +
               (L.nChart ? '<span class="vc">' + L.nChart + ' 盘</span>' : '') +
-              (q ? '<span class="vq">' + q + ' 例</span>' : '') + '</div>';
+              ((L.extra || []).length ? '<span class="vq">+' + L.extra.length + ' 盘</span>' : '') + '</div>';
           }).join('') + '</div></div>';
       }).join('');
   });
@@ -846,11 +835,15 @@ RENDER.vkeread = function (key) {
         vkeChartHTML(sg.chart, ci) + inner + '</div>';
     }).join('');
 
-    var q = L.q || [];
+    var ex = L.extra || [];
     body.innerHTML =
       '<div class="vbody">' + html + '</div>' +
-      (q.length ? '<div id="vkeQ" class="muted pad" style="margin-top:20px">' +
-        '正在取这一课的 ' + q.length + ' 个命例…</div>' : '') +
+      (ex.length ? '<div class="vqbox"><div class="vqtt">讲解里提到、上面没抄下来的盘 · ' +
+        ex.length + ' 个</div><div class="vqpans">' +
+        ex.map(function (b, i) {
+          return '<div class="vqpan">' + vkeChartHTML(b, 'x' + i) +
+            '<span class="vqsq">命例 ' + (b.seq || b.n) + '</span></div>';
+        }).join('') + '</div></div>' : '') +
       '<div class="row spread pad" style="margin-top:18px">' +
       (k > 1 ? '<span class="chip tap" data-lec="' + (k - 1) + '">‹ 第 ' + (k - 1) + ' 课</span>' : '<span></span>') +
       (k < V.nLesson ? '<span class="chip tap" data-lec="' + (k + 1) + '">第 ' + (k + 1) + ' 课 ›</span>' : '<span></span>') +
@@ -863,61 +856,6 @@ RENDER.vkeread = function (key) {
     pan.classList.toggle('hide', !charts.length);
     vkeStartSpy();
 
-    if (q.length) needVkeQ().then(function (M) {
-      var box = $('#vkeQ');
-      if (!box) return;                     // 已经翻到别的课了
-      var got = q.map(function (n) { return M[n]; }).filter(Boolean);
-      if (!got.length) { box.remove(); return; }
-      box.className = 'vqbox';
-      box.innerHTML =
-        '<div class="vqtt">这一课的命例 · ' + got.length + ' 例</div>' +
-        got.map(function (it) {
-          var h = '<div class="vqcase" data-qn="' + it.n + '">' +
-            '<div class="vqh"><span class="vqn">命例 ' + (it.seq || it.n) + '</span>' +
-            '<span class="vqname">' + esc(it.title) + '</span>' +
-            (it.star ? '<span class="vqstar">精读</span>' : '') + '</div>' +
-            '<div class="doc">' + it.face + '</div>';
-          if (it.jie) {
-            h += '<div class="vqlab">' + esc(it.noAnswer ? '提示方向' : it.jieLabel || '解') + '</div>' +
-              '<div class="doc vqjie">' +
-              (it.noAnswer ? '<p class="muted">⚠️ 原书未给解，这是反推题——只有方向，没有答案。</p>' : '') +
-              it.jie + '</div>';
-          }
-          if (it.chai) {
-            h += '<div class="vqlab vqlab2">拆解<span class="vqnote">我补的推理，非原文，可推翻</span></div>' +
-              '<div class="doc vqchai">' + it.chai + '</div>';
-          }
-          return h + '</div>';
-        }).join('');
-
-      /* 正文里引到的题，如果本来就摊在这一页，就别再跳出去了 ——
-         用户要的就是不跳转。指向别处的照旧跳题库；引到自己的直接不给点。 */
-      var here = {};
-      got.forEach(function (it) { here[it.n] = 1; });
-      $$('a.qref', box).forEach(function (a) {
-        var to = +a.dataset.q;
-        if (!here[to]) return;                       // 不在本页，留给 bindDoc
-        var own = a.closest('.vqcase');
-        a.classList.remove('qref');
-        if (own && +own.dataset.qn === to) {         // 引到的就是它自己
-          a.className = 'qself';
-        } else {
-          a.className = 'qjump';
-          a.dataset.to = to;
-        }
-      });
-      bindDoc(box);                                  // 这时 qref 只剩指向别处的
-      $$('.qjump', box).forEach(function (a) {
-        a.onclick = function () {
-          var el = box.querySelector('.vqcase[data-qn="' + a.dataset.to + '"]');
-          if (!el) return;
-          try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
-          catch (e) { el.scrollIntoView(); }
-          el.classList.add('vqhit');
-          setTimeout(function () { el.classList.remove('vqhit'); }, 1400);
-        };
-      });
-    });
   });
 };
 
@@ -927,7 +865,9 @@ function vkeStartSpy() {
   vkeStopSpy();
   var pan = $('#vkePan'); if (!pan || pan.classList.contains('hide')) return;
   var mark = function () {
-    var cs = $$('#vkeBody .vchart'), top = 120, at = 0;
+    // ⚠️ 只认**课文里**的盘。课末尾补的那些盘也是 .vchart，
+    //    跟进来会让吸顶条在翻到底时乱跳。
+    var cs = $$('#vkeBody .vbody .vchart'), top = 120, at = 0;
     for (var i = 0; i < cs.length; i++) {
       if (cs[i].getBoundingClientRect().top <= top) at = i; else break;
     }
