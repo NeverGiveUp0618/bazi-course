@@ -861,7 +861,9 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 /* 我的提问 */
 .doc .cal-q{border-left-color:var(--ink3);background:transparent;
   border:1px solid var(--line);border-left:3px solid var(--ink3);border-radius:12px}
-.doc .cal-q .calh{color:var(--ink3)}
+/* ⚠️ 标签别用 --ink3：浅底上只有 3.1。「我的问题 / 结论」是区分这两块的
+   唯一文字标识，看不清就分不出哪块是问、哪块是答。 */
+.doc .cal-q .calh{color:var(--ink2)}
 /* 结论——最该先看到的那块 */
 .doc .cal-tip{border-left-color:var(--indigo);background:var(--indigo-soft)}
 .doc .cal-tip .calh{color:var(--indigo)}
