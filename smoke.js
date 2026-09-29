@@ -105,6 +105,14 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(D.querySelectorAll('#chapterBody .tip').length > 0,
        '段首 ⚠️／⭐ 的段落包成提示框，共 ' + D.querySelectorAll('#chapterBody .tip').length + ' 个');
     ok(D.querySelectorAll('#chapterBody .cmap').length === 1, '章首有「本章地图」');
+    // 自测的答案必须默认收起，否则一眼看到答案，自测白做
+    {
+      const ans = D.querySelectorAll('#chapterBody details.ans');
+      ok(ans.length > 0, '「答案」整节折叠起来了');
+      ok([...ans].every(d => !d.hasAttribute('open')), '默认是收起的');
+      ok([...ans].every(d => d.querySelector('summary')), '每个都有可点的标题');
+      ok([...ans].every(d => d.textContent.trim().length > 30), '折叠块里有内容');
+    }
     // 待查/存疑段要降成小字，不能包成抢眼的黄框；但"判据补上了"这类
     // 只是**引述**了一句"原书没给判据"的正面内容，绝不能跟着降（误伤过）。
     ok([...D.querySelectorAll('#chapterBody .tipq')].every(

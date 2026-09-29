@@ -122,6 +122,7 @@ _HM_JUNK = re.compile(r'^(?:补|补齐|补充|补上|新增|已?订正|重写|�
 # ⚠️ 只认**明确是出处清单**的。「附：不需要命例的两条」「附：断单项事情的方法」
 #    虽然也用「附：」开头，但那是知识内容，降了就被埋没。
 _HM_APPX = re.compile(r'^附[：:、]\s*出处|^附录[：:]?\s*出处|^原文出处|^资料来源|^出处$|（回查用）')
+_HM_ANS = re.compile(r'^(参考)?答案\s*$')
 _HM_TODO = re.compile(r'^待查|^存疑[①②③④⑤⑥]?|（存疑|〔存疑〕|仅备记')
 
 
@@ -422,11 +423,11 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
     anchors = {}
     seq = {2: 0, 3: 0}          # 手册模式的连续编号
     keepnum = (manual == 'light')   # 'light'＝笔记：清洗标记但保留原编号
-    minor_open = [None]         # 正在收小字的那一节的层级
+    minor_open = [None]         # 正在收小字的那一节：(层级, 收尾标签)
 
     def close_minor(lv=0):
-        if minor_open[0] is not None and lv <= minor_open[0]:
-            out.append('</div>')
+        if minor_open[0] is not None and lv <= minor_open[0][0]:
+            out.append(minor_open[0][1])
             minor_open[0] = None
 
     def anchor_for(t):
@@ -472,6 +473,13 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
             a = anchor_for(m.group(2))
             if manual and 2 <= lv <= 4:
                 close_minor(lv)
+                # ⭐ 自测的「答案」默认收起：摊在题目下面，自测就白做了。
+                if _HM_ANS.match(re.sub(r'^[^、]{1,4}、\s*', '', m.group(2).strip())):
+                    out.append('<details class="ans" id="%s">'
+                               '<summary>答案 · 做完再看</summary>' % a)
+                    minor_open[0] = (lv, '</details>')
+                    i += 1
+                    continue
                 h, clean, minor = _hm_render(lv, m.group(2), a, seq, keepnum)
                 out.append(h)
                 _, stars, _w, _nt, _mn = _hm_head(m.group(2), keepnum)
@@ -482,7 +490,7 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
                 #    覆盖掉，最后少关一个（audit 报 <div> 开15闭14）。
                 if minor and minor_open[0] is None:
                     out.append('<div class="minorbody">')
-                    minor_open[0] = lv
+                    minor_open[0] = (lv, '</div>')
                 i += 1
                 continue
             txt = _inline(m.group(2))

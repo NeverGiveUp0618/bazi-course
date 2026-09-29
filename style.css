@@ -869,3 +869,23 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
   background:color-mix(in srgb,var(--warn) 9%,var(--card))}
 .doc .cal-warn .calh{color:var(--warn)}
 .doc .cal-note{border-left-color:var(--line)}
+
+/* 自测的答案：默认收起。摊在题目底下，自测就白做了 */
+.doc details.ans{
+  margin:16px 0;padding:0;border:1px solid var(--line);
+  border-radius:12px;background:var(--bg2);overflow:hidden
+}
+.doc details.ans>summary{
+  /* ⚠️ display:block 才真能去掉默认三角——新版 Chrome 用 ::marker，
+     光靠 list-style:none 和 -webkit-details-marker 管不住，会多出一个箭头。 */
+  display:block;cursor:pointer;list-style:none;padding:11px 15px;
+  font-family:Georgia,"Songti SC",serif;font-size:14px;font-weight:700;
+  color:var(--indigo);letter-spacing:.5px
+}
+.doc details.ans>summary::-webkit-details-marker{display:none}
+.doc details.ans>summary::marker{content:''}
+.doc details.ans>summary::after{content:' ▸';color:var(--ink3);font-weight:400}
+.doc details.ans[open]>summary::after{content:' ▾'}
+.doc details.ans[open]>summary{border-bottom:1px solid var(--line)}
+.doc details.ans>*:not(summary){margin-left:15px;margin-right:15px}
+.doc details.ans>*:last-child{margin-bottom:12px}
