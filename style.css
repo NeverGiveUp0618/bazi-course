@@ -843,3 +843,29 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
   font-size:9.5px;line-height:1.45;color:var(--ink3);
   letter-spacing:-.3px;white-space:nowrap
 }
+
+/* ---------- 笔记里的 callout（`> [!question] …`）----------
+   以前这套 Obsidian 语法没实现，「[!question]」就裸印在页面上。
+   问＝提问，结论＝答案，两者一眼分开，笔记才读得下去。 */
+.doc .cal{
+  margin:14px 0;padding:11px 14px 4px;
+  border-radius:0 12px 12px 0;border-left:3px solid var(--line);
+  background:var(--bg2)
+}
+.doc .calh{
+  font-family:Georgia,"Songti SC",serif;font-size:13px;font-weight:700;
+  letter-spacing:.6px;color:var(--ink3);margin-bottom:4px
+}
+.doc .cal p{margin:7px 0}
+.doc .cal>:last-child{margin-bottom:8px}
+/* 我的提问 */
+.doc .cal-q{border-left-color:var(--ink3);background:transparent;
+  border:1px solid var(--line);border-left:3px solid var(--ink3);border-radius:12px}
+.doc .cal-q .calh{color:var(--ink3)}
+/* 结论——最该先看到的那块 */
+.doc .cal-tip{border-left-color:var(--indigo);background:var(--indigo-soft)}
+.doc .cal-tip .calh{color:var(--indigo)}
+.doc .cal-warn{border-left-color:var(--warn);
+  background:color-mix(in srgb,var(--warn) 9%,var(--card))}
+.doc .cal-warn .calh{color:var(--warn)}
+.doc .cal-note{border-left-color:var(--line)}

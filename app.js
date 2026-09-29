@@ -239,14 +239,18 @@ var BLOCKISH = { P: 1, LI: 1, TD: 1, TH: 1, DIV: 1, BLOCKQUOTE: 1, PRE: 1,
 /* 按标题原文（data-raw）定位。引用方有时照着渲染结果抄，把「」漏掉了，
    所以两边都去掉「」再比一次。 */
 function findHeadRaw(roots, kw) {
+  // ⚠️ [[某篇#某节]] 里的锚点是 mdlite 处理过的文本：**粗体标记已被剥掉**、
+  //    「」也变成了 <q>。data-raw 存的却是一字未动的原标题，
+  //    所以两边都归一掉再比，否则点了跳不过去（笔记那边真坏过）。
+  var norm = function (x) { return x.replace(/\*\*/g, '').replace(/[「」『』【】]/g, ''); };
   var want = String(kw).trim();
-  var bare = want.replace(/[「」『』]/g, '');
+  var bare = norm(want);
   if (!want) return false;
   for (var i = 0; i < roots.length; i++) {
     var hs = roots[i].querySelectorAll ? roots[i].querySelectorAll('[data-raw]') : [];
     for (var k = 0; k < hs.length; k++) {
       var raw = hs[k].getAttribute('data-raw').trim();
-      if (raw === want || raw.replace(/[「」『』]/g, '') === bare) {
+      if (raw === want || norm(raw) === bare) {
         hs[k].classList.add('sr-blk');
         try { hs[k].scrollIntoView({ block: 'start' }); }
         catch (e) { try { window.scrollTo(0, hs[k].offsetTop - 120); } catch (e2) {} }

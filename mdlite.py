@@ -84,6 +84,17 @@ _OL = re.compile(r'^(\s*)(\d+)\.\s+(.*)$')
 _RAW = re.compile(r'^\s*</?(details|summary|div|br|hr|p|span|img)\b', re.I)
 _TABLE_SEP = re.compile(r'^\s*\|[\s:|-]+\|\s*$')
 
+# Obsidian callout：`> [!tip] 结论`
+_CALLOUT = re.compile(r'^\s*\[!(\w+)\]\s*(.*)$')
+_CALL_KIND = {
+    'question':  ('q',    '我的问题'),
+    'tip':       ('tip',  '结论'),
+    'important': ('tip',  '要点'),
+    'warning':   ('warn', '注意'),
+    'note':      ('note', '说明'),
+    'info':      ('note', '说明'),
+}
+
 
 # ---------- 讲解手册模式：标题清洗 ----------
 # ⚠️ 源文件的标题里混着三种给"施工"看的东西，学习时全是噪音：
@@ -105,8 +116,22 @@ _HM_DATE = re.compile(r'\d{4}-\d{2}-\d{2}\s*')
 _HM_JUNK = re.compile(r'^(?:补|补齐|补充|补上|新增|已?订正|重写|改写|待补)?$')
 
 
-def _hm_head(raw):
-    """拆一行标题 → (正文, 星级, 警示级, 小字注, 是否次要)。"""
+# 「回查用」的附录 / 纯待查清单 —— 内容留着，但降成小字，别跟正文抢位置。
+# ⚠️ 必须**锚在开头**判断：「补充：大任的原文出处找到了」「这一篇补掉了哪些旧待查」
+#    是正面成果，只因标题里带了「出处」「待查」就降级，是误伤（真误伤过）。
+# ⚠️ 只认**明确是出处清单**的。「附：不需要命例的两条」「附：断单项事情的方法」
+#    虽然也用「附：」开头，但那是知识内容，降了就被埋没。
+_HM_APPX = re.compile(r'^附[：:、]\s*出处|^附录[：:]?\s*出处|^原文出处|^资料来源|^出处$|（回查用）')
+_HM_TODO = re.compile(r'^待查|^存疑[①②③④⑤⑥]?|（存疑|〔存疑〕|仅备记')
+
+
+def _hm_head(raw, keepnum=False):
+    """拆一行标题 → (正文, 星级, 警示级, 小字注, 是否次要)。
+
+    keepnum: 保留原编号。⚠️ 笔记必须传 True ——
+             它们内部是拿「见第五节」「见 7.3」这种**文字**互相引用的，
+             一重新编号就全对不上了（教材那边用的是 [[章#标题]]，不受影响）。
+    """
     t = raw.strip()
     minor = False
 
@@ -118,8 +143,15 @@ def _hm_head(raw):
         warn = m.group(1).count('⚠️')
         t = t[m.end():].lstrip()
 
-    # ② 补丁编号（丢掉，渲染时重新连续编号）
-    t = _HM_NUM.sub('', t, count=1).lstrip()
+    # ② 补丁编号（丢掉，渲染时重新连续编号）；笔记要留着
+    if not keepnum:
+        t = _HM_NUM.sub('', t, count=1).lstrip()
+    else:
+        m0 = _HM_NUM.match(t)
+        if m0:                      # 编号先摘下来，剥完标记再接回去
+            num0, t = m0.group(0), t[m0.end():].lstrip()
+        else:
+            num0 = ''
 
     # ③ 标记可能夹在编号后面（「一·B、⭐⭐ 被漏掉的…」）
     m = _HM_MARK.match(t)
@@ -128,8 +160,8 @@ def _hm_head(raw):
         warn = max(warn, m.group(1).count('⚠️'))
         t = t[m.end():].lstrip()
 
-    # ④ 〔存疑〕/待查 → 次要
-    if '存疑' in t or '待查' in t:
+    # ④ 〔存疑〕/待查、以及「附：出处」这类回查用附录 → 次要
+    if _HM_TODO.search(t) or _HM_APPX.search(t):
         minor = True
     t = re.sub(r'^〔(?:存疑|待查)〕\s*', '', t)
 
@@ -150,14 +182,19 @@ def _hm_head(raw):
             note = inner if re.search(r'p\s*\d|\d\s*讲', inner) else ''
         elif _HM_JUNK.match(orig.strip()):
             t = t[:m.start()].rstrip()          # 「（补）」这种纯痕迹
-    return t.strip() or raw.strip(), stars, warn, note, minor
+    body = t.strip() or raw.strip()
+    if keepnum and num0:
+        body = num0 + body
+    return body, stars, warn, note, minor
 
 
-def _hm_render(lv, txt, anchor, seq):
+def _hm_render(lv, txt, anchor, seq, keepnum=False):
     """手册模式的标题 HTML：序号色块 + 标题 + 重点/注意标 + 小字注。"""
-    body, stars, warn, note, minor = _hm_head(txt)
+    body, stars, warn, note, minor = _hm_head(txt, keepnum)
     num = ''
-    if lv == 2:
+    if keepnum:
+        pass                    # 笔记自带编号（已在 body 里），不另外编
+    elif lv == 2:
         seq[2] += 1
         seq[3] = 0
         num = str(seq[2])
@@ -180,7 +217,10 @@ def _hm_render(lv, txt, anchor, seq):
     if warn:
         bits.append('<span class="mhb mhbw">注意</span>')
     if minor:
-        bits.append('<span class="mhb mhbm">存疑</span>')
+        # 出处清单和存疑待查都降成小字，但标记要分开——前者是「回查用」，
+        # 后者是「还没定论」，混成一个词会误导。
+        bits.append('<span class="mhb mhbm">%s</span>'
+                    % ('回查' if _HM_APPX.search(body) else '存疑'))
     # ⚠️ data-raw 留着**清洗前**的整行标题：站内几百处 [[某章#某节]] 是按
     #    标题原文去页面里找的，标题一洗它们就全落空。跳转和 audit 都认这个属性。
     h = '<h%d id="%s" class="%s" data-raw="%s">%s</h%d>' % (
@@ -372,6 +412,8 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
     collect_headings: 传入 list 则回填 (level, text, anchor, stars, minor)，用于生成目录。
     manual: 讲解手册模式 —— 标题去掉施工痕迹、重新连续编号、
             存疑/待查那一节连正文一起降成小字（见 _hm_head）。
+            传 'light'＝笔记模式：同样清洗，但**保留原编号**
+            —— 笔记内部拿「见第五节」「见 7.3」互相引用，重编号会全对不上。
     """
     lines = text.replace('\r\n', '\n').split('\n')
     out = []
@@ -379,6 +421,7 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
     n = len(lines)
     anchors = {}
     seq = {2: 0, 3: 0}          # 手册模式的连续编号
+    keepnum = (manual == 'light')   # 'light'＝笔记：清洗标记但保留原编号
     minor_open = [None]         # 正在收小字的那一节的层级
 
     def close_minor(lv=0):
@@ -429,12 +472,15 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
             a = anchor_for(m.group(2))
             if manual and 2 <= lv <= 4:
                 close_minor(lv)
-                h, clean, minor = _hm_render(lv, m.group(2), a, seq)
+                h, clean, minor = _hm_render(lv, m.group(2), a, seq, keepnum)
                 out.append(h)
-                _, stars, _w, _nt, _mn = _hm_head(m.group(2))
+                _, stars, _w, _nt, _mn = _hm_head(m.group(2), keepnum)
                 if collect_headings is not None:
                     collect_headings.append((len(m.group(1)), clean, a, stars, minor))
-                if minor:
+                # ⚠️ 已经在小字块里就不再开第二层：笔记7 的「资料里的两处矛盾（存疑）」
+                #    下面还挂着「存疑①」「存疑②」，各开一个 div 会把外层的记录
+                #    覆盖掉，最后少关一个（audit 报 <div> 开15闭14）。
+                if minor and minor_open[0] is None:
                     out.append('<div class="minorbody">')
                     minor_open[0] = lv
                 i += 1
@@ -489,6 +535,19 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
                     break
                 buf.append(re.sub(r'^\s*>\s?', '', lines[i]))
                 i += 1
+            # Obsidian 的 callout：`> [!tip] 结论`。站里一直没实现，
+            # 「[!question]」「[!tip]」就这么裸着印在页面上（笔记开头全是）。
+            mc = _CALLOUT.match(buf[0]) if buf else None
+            if mc:
+                kind = mc.group(1).lower()
+                cap = mc.group(2).strip()
+                buf = buf[1:]
+                meta = _CALL_KIND.get(kind, ('note', kind))
+                inner = md2html('\n'.join(buf), heading_offset)
+                out.append(
+                    '<div class="cal cal-%s"><div class="calh">%s</div>%s</div>'
+                    % (meta[0], _inline(cap or meta[1]), inner))
+                continue
             inner = md2html('\n'.join(buf), heading_offset)
             out.append(f'<blockquote>{inner}</blockquote>')
             continue

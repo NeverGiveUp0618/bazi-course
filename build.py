@@ -329,7 +329,9 @@ def build_quiz():
 def build_docs(files, kind):
     # 教材走「讲解手册」模式：标题清掉施工痕迹、重新连续编号、存疑节降小字。
     # 笔记是问答体、结构本来就简单，不套这层（套了反而把"问"的编号改掉）。
-    manual = (kind == 'c')
+    # ⚠️ 笔记走 'light'：同样清洗标记、把「附：出处」这类降成小字，但**保留原编号**——
+    #    笔记内部是拿「见第五节」「见 7.3」互相引用的，重编号会全对不上。
+    manual = 'light' if kind == 'n' else (kind == 'c')
     docs = []
     for path, num, title in files:
         s = read(path)
