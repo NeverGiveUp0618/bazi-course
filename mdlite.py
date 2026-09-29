@@ -394,6 +394,12 @@ def _lift_inline_chart(para):
     return out
 
 
+def _cell(c):
+    """表格单元格。⚠️ 必须跟段落一样把 &lt;br&gt; 还原成真换行 ——
+    站内有 41 处表格靠 <br> 分行，漏了这一步就把「<br>」四个字印在页面上。"""
+    return _inline(c).replace('&lt;br&gt;', '<br>')
+
+
 def _cells(line):
     """拆表格行。⚠️ 必须先保护 `\\|` 转义——Obsidian 的 [[目标|显示文本]] 写在
     表格里时会转义成 `\\|`，直接按 | 切会把一个链接劈成两个单元格。"""
@@ -517,7 +523,7 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
                 out.append(ic)
                 continue
             t = ['<div class="tw"><table>', '<thead><tr>']
-            t += [f'<th>{_inline(c)}</th>' for c in head]
+            t += [f'<th>{_cell(c)}</th>' for c in head]
             t.append('</tr></thead><tbody>')
             # ⚠️ 短标签单元格(序号/干支/是否)要禁止换行——否则窄屏下
             #    「（一）」会被拆成两行，第8章「制局十类」整张表都这样。
@@ -528,7 +534,7 @@ def md2html(text, heading_offset=0, collect_headings=None, manual=False):
                 for c in r:
                     plain = re.sub(r'<[^>]+>', '', _inline(c))
                     cls = ' class="nw"' if len(plain.strip()) <= 6 else ''
-                    cells.append(f'<td{cls}>{_inline(c)}</td>')
+                    cells.append(f'<td{cls}>{_cell(c)}</td>')
                 t.append('<tr>' + ''.join(cells) + '</tr>')
             t.append('</tbody></table></div>')
             out.append(''.join(t))

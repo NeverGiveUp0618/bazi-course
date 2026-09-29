@@ -594,6 +594,10 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   }
 
   console.log('\n— 表格排版 —');
+  // 站内 41 处表格靠 <br> 分行；漏了还原就把「<br>」四个字印在页面上（真印过 46 处）
+  ok(!/&lt;br&gt;/.test(window.DATA_COURSE.map(x => x.html).join('') +
+       window.DATA_NOTES.map(x => x.html).join('')),
+     '表格单元格里的 <br> 已还原成换行，没有印成字面');
   {
     D.querySelector('[data-tab="course"]').click(); await wait();
     D.querySelectorAll('#courseList [data-ch]')[7].click(); await wait();
