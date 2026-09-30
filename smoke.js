@@ -731,6 +731,24 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(V && V.lessons && V.lessons.length >= 120, `重排成 ${V.nLesson} 课（基线 120）`);
     ok(V.nChart >= 120, `盘数 ${V.nChart} 个（基线 120）`);
     ok(V.nFixed >= 40, `接回了 ${V.nFixed} 处被切断的分析（基线 40）`);
+    // 并排双盘：原稿把两个对比命例横着摆（坤一/坤二、乾①/乾②），
+    // 8 干＋8 支看着像一条大运，第38课就被吞过。
+    {
+      const pairs = [];
+      V.lessons.forEach(L => {
+        const cs = L.segs.filter(s => s.chart).map(s => s.chart);
+        for (let i = 0; i < cs.length - 1; i++)
+          if (/^[一二①②]$/.test(cs[i].note || '') && /^[一二①②]$/.test(cs[i + 1].note || ''))
+            pairs.push(L.k);
+      });
+      ok(pairs.length >= 4, `并排双盘拆成了独立的盘，共 ${pairs.length} 对`);
+      let wide = 0;
+      V.lessons.forEach(L => L.segs.forEach(s => s.blocks.forEach(
+        b => { if (b.t === 'luck' && b.gan.length >= 8) wide++; })));
+      ok(wide === 0, '没有 8 柱的「大运」（那是并排双盘被误判）');
+      const l38 = V.lessons.find(x => x.k === 38);
+      ok(l38 && l38.nChart === 4, `第38课 4 个盘（坤一坤二各自独立），实为 ${l38 && l38.nChart}`);
+    }
 
     // ⭐ 核心：一个命例和它的分析必须在同一课里 ——
     //    表现为"课的第一个段落不会是空盘段后面紧跟大段分析"，

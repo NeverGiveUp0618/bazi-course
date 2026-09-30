@@ -480,6 +480,30 @@ def build_vke(quiz_items):
                 lec.append(cur)
                 i += 1
                 continue
+            # ⭐ 并排双盘：原稿里常把两个对比命例横着摆，靠大段空白分栏 ——
+            #      坤一                         坤二
+            #      戊 丁 丙 戊               戊 丁 丙 壬
+            #      申 巳 戌 戌               申 巳 戌 辰
+            #   ⚠️ 不认它就会被下面的大运规则吞掉（8 个干＋8 个支，看着正像一条大运）。
+            #      全库 4 处：第38课坤一坤二、下卷两处乾①乾②、中卷一处。
+            mpp = re.match(r'^(乾|坤)([^\s（(]*)\s{3,}(乾|坤)([^\s（(]*)\s*$', line)
+            if mpp and cur is not None:
+                l1, _ = nxt(i)
+                l2, j2 = nxt(i, 2)
+                ag = [c for c in l1 if c in GAN]
+                bz = [c for c in l2 if c in ZHI]
+                if (len(ag) == 8 and len(bz) == 8
+                        and not re.sub(r'[%s\s]' % GAN, '', l1)
+                        and not re.sub(r'[%s\s]' % ZHI, '', l2)):
+                    for k2, (gg, nn) in enumerate([(mpp.group(1), mpp.group(2)),
+                                                   (mpp.group(3), mpp.group(4))]):
+                        cur['blocks'].append({'t': 'chart', 'g': gg,
+                                              'gan': ag[k2 * 4:k2 * 4 + 4],
+                                              'zhi': bz[k2 * 4:k2 * 4 + 4],
+                                              'note': nn.strip()})
+                    i = j2 + 1
+                    continue
+
             mp = re.match(r'^(乾|坤)\s*[\(（]?([^）\)]*)[\)）]?\s*$', line)
             if mp and cur is not None:
                 l1, _ = nxt(i)
@@ -498,7 +522,9 @@ def build_vke(quiz_items):
                 ag = [c for c in line if c in GAN]
                 bz = [('寅' if c == '新' else c) for c in b if c in ZHI or c == '新']
                 if (len(ag) >= 4 and not re.sub(r'[%s\s]' % GAN, '', line)
-                        and len(bz) >= 4 and not re.sub(r'[%s新\s]' % ZHI, '', b)):
+                        and len(bz) >= 4 and not re.sub(r'[%s新\s]' % ZHI, '', b)
+                        # ⚠️ 8 个字又被大段空白分成两栏 ＝ 并排双盘（上面那段没接住的），不是大运
+                        and not (len(ag) == 8 and re.search(r'\s{3,}', line))):
                     cur['blocks'].append({'t': 'luck', 'gan': ag, 'zhi': bz})
                     i = jb + 1
                     continue
