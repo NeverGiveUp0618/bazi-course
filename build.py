@@ -374,43 +374,68 @@ def _inline(text):
 # 讲次号→站内题号：v课实录那批题都在解里标了「v课 · 第NNN讲」，
 # 反查出来挂到笔记上，读原文时能直接跳到对应的题。
 def _lecture_to_quiz(quiz_items):
+    """题号 ← 讲次。用来判断"这一课讲的是哪几道题"。
+
+    ⚠️⚠️ 不能见「NNN讲」就算 —— 题解里提讲次有三种，只有第一种算数：
+      ① 这道题**自己的出处**            〔v课 · 第 712 讲〕        ✅
+      ② 顺手引**别的题**的出处          |【题402】〔v课 712 讲〕|  ❌ 那是题402 的
+      ③ 引某一讲的**一句话**当依据      「…双面性」〔v课 · 第 713 讲〕 ❌ 只是借句话
+    第34课曾因此凭空多出 3 个盘（用户："原视频稿没讲那么多"）。
+    所以：**跳过表格行**（引别的题多半在表里）、**跳过同一行里出现【题N】的**。
+    """
     m = {}
     for it in quiz_items:
         blob = (it.get('face') or '') + (it.get('jie') or '') + (it.get('chai') or '')
-        for k in set(re.findall(r'(\d{3})\s*讲', blob)):
-            k = int(k)
+        blob = re.sub(r'<br\s*/?>', '\n', blob)
+        got = set()
+        for ln in re.split(r'\n|</p>|</tr>', blob):
+            plain = re.sub(r'<[^>]+>', '', ln)
+            if plain.lstrip().startswith('|'):          # 表格行：多半在引别的题
+                continue
+            if re.search(r'【题\s*\d+】|data-q="', ln):   # 同一行提到别的题号
+                continue
+            got |= {int(x) for x in re.findall(r'(\d{3})\s*讲', plain)}
+        for k in got:
             if 666 <= k <= 876:            # 只认 v课这批，正文里的三位数不算
                 m.setdefault(k, []).append(it['n'])
     return {k: sorted(set(v)) for k, v in m.items()}
 
 
 def attach_charts(quiz_items, vke):
-    """给每课补上「讲解里提到、但笔记没抄下来」的盘。
+    """把「接着上一课讲、但笔记没再抄一遍」的盘带过来。
 
-    ⚠️ 只补**盘**。断／解／拆解是题库的事——用户原话：
-       「这里就是 v课原本的讲解加上命盘就行，讲解我会在题库里学」。
-    ⚠️ 课文里已经有的盘不再补一遍（124 个重复的就是这么来的）。
+    ⚠️⚠️ 用户说明（2026-09-30）：**盘在原讲课稿里都有**，不用去题库补，也不许自己造。
+       他记笔记是按**视频编号**走的，而视频每 17 分钟被硬剪一刀 ——
+       同一个命例常常跨两讲；盘写在上一讲里，下一讲接着分析就不再抄一遍了。
+       所以这里只做一件事：**把上一课最后那个盘带下来**。
+
+    带的条件（三条都要满足，宁可不带也不能带错）：
+      ① 本课原稿一个盘都没有
+      ② 紧挨着的上一课有盘，且**讲次连得上**（相差 ≤1，同一卷）
+      ③ 本课正文的**干支字密度 ≥ 8%** —— 说明确实在拆盘。
+         纯理论课（「宫星主体」「七种看财法」「寿元门」口诀）密度只有 0–5%，
+         它们本来就不需要盘，带过去反而误导。
     """
-    by = {q['n']: q for q in quiz_items}
+    GZ = set(GAN + ZHI)
+    ls = vke['lessons']
     n_add = 0
-    for L in vke['lessons']:
-        mine = {(''.join(s['chart']['gan']), ''.join(s['chart']['zhi']))
-                for s in L['segs'] if s['chart']}
-        extra, seen = [], set()
-        for n in L['q']:
-            q = by.get(n)
-            if not q:
-                continue
-            cs = q.get('charts') or ([q['chart']] if q.get('chart') else [])
-            for ch in cs:
-                k = (''.join(ch.get('gan', [])), ''.join(ch.get('zhi', [])))
-                if len(k[0]) != 4 or k in mine or k in seen:
-                    continue
-                seen.add(k)
-                extra.append({'g': ch.get('g', ''), 'gan': ch['gan'], 'zhi': ch['zhi'],
-                              'note': ch.get('label', ''), 'seq': q.get('seq'), 'n': n})
-        L['extra'] = extra
-        n_add += len(extra)
+    for i, L in enumerate(ls):
+        L['extra'] = []
+        if L['nChart'] or i == 0:
+            continue
+        P = ls[i - 1]
+        if not P['nChart'] or P['vol'] != L['vol'] or not P['src'] or not L['src']:
+            continue
+        if min(L['src']) - max(P['src']) > 1:          # 讲次断开了，不是接着讲
+            continue
+        txt = ''.join(re.sub(r'<[^>]+>', '', b.get('s', ''))
+                      for sg in L['segs'] for b in sg['blocks'])
+        if not txt or sum(1 for ch in txt if ch in GZ) / len(txt) < 0.08:
+            continue                                    # 密度太低＝在讲理论，不是在拆盘
+        last = [sg['chart'] for sg in P['segs'] if sg['chart']][-1]
+        L['extra'] = [{'g': last['g'], 'gan': last['gan'], 'zhi': last['zhi'],
+                       'note': last.get('note', ''), 'from': P['k']}]
+        n_add += 1
     vke['nExtra'] = n_add
     return vke
 
@@ -510,11 +535,27 @@ def build_vke(quiz_items):
                 l2, j2 = nxt(i, 2)
                 g = [c for c in l1 if c in GAN]
                 z = [c for c in l2 if c in ZHI]
-                if len(g) == 4 and len(z) == 4 and not re.sub(r'[%s\s]' % GAN, '', l1):
+                # ⚠️⚠️ 原稿常把**盘和大运写在同一行**：
+                #      甲 癸 乙 癸    9岁起运 甲 乙 丙 丁 戊
+                #      寅 酉 卯 未                 戌 亥 子 丑 寅
+                #    旧规则要求天干行"纯干支"，被「9岁起运」四个字一挡，整个盘就丢了
+                #    —— 全库 20 余处（用户："我每一个课讲解在原稿里都有盘面"）。
+                #    现在改成：**前 4 个干支就是盘**，多出来的若干支数相等且 ≥2 柱，当大运。
+                if len(g) >= 4 and len(z) >= 4:
                     note = re.sub(r'^[%s\s]+' % ZHI, '', l2)
                     note = re.sub(r'^[\(（]|[\)）]$', '', note).strip()
-                    cur['blocks'].append({'t': 'chart', 'g': mp.group(1), 'gan': g, 'zhi': z,
+                    # ⚠️ 地支行后面跟的若是文字（「目前癸亥运，丙申年」），里头的干支字
+                    #    也会被数进来 —— 所以只有**干支两行多出来的柱数一样**才当大运。
+                    extra_gz = len(g) - 4
+                    if extra_gz >= 2 and len(z) - 4 == extra_gz:
+                        note = ''                       # 后面是大运，不是文字注
+                    else:
+                        extra_gz = 0
+                    cur['blocks'].append({'t': 'chart', 'g': mp.group(1),
+                                          'gan': g[:4], 'zhi': z[:4],
                                           'note': (mp.group(2).strip() + ' ' + note).strip()})
+                    if extra_gz:
+                        cur['blocks'].append({'t': 'luck', 'gan': g[4:], 'zhi': z[4:]})
                     i = j2 + 1
                     continue
             if cur is not None:

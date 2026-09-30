@@ -832,7 +832,9 @@ RENDER.vke = function () {
       '<div class="muted" style="margin-top:6px;line-height:1.75">' +
       '全部 ' + V.nChart + ' 个命盘。⭐ <b>一个命例和它的分析永远在同一课里</b>——' +
       '原稿里有 ' + V.nFixed + ' 处分析被切到了下一段，已经接回去了。<br>' +
-      '⭐ 读的时候<b>盘钉在顶上</b>；原稿没抄下来的盘，<b>补在课文最前面</b>（' + V.nExtra + ' 个）。<br>' +
+      '⭐ 读的时候<b>盘钉在顶上</b>；' +
+      '⚠️ 原稿是按<b>v课编号</b>记的，而每讲被硬剪成 17 分钟，同一个命例常跨两讲——' +
+      '接着上一课讲、没再抄盘的那 ' + V.nExtra + ' 课，已把<b>上一课的盘带到最前面</b>。<br>' +
       '⭐ 盘上标了<b>十神</b>，按「<b>天地阴阳诀</b>」定——<b>寅申巳亥辰戌为阳、子午卯酉丑未为阴</b>（与藏干本气一致）。' +
       '⚠️ 这与通用算法不同：<b>甲日见子是正印、见午是伤官</b>。</div>' +
       '<div class="vsrc tap" id="vsrcTog">课号对照（要回查原始材料时展开）▸</div>' +
@@ -889,14 +891,12 @@ RENDER.vkeread = function (key) {
     }).join('');
 
     body.innerHTML =
-      (ex.length ? '<div class="vqbox"><div class="vqtt">这一课的盘 · ' +
-        ex.length + ' 个<span class="vqwhy">原稿没抄下来，从题库补上</span></div>' +
+      (ex.length ? '<div class="vqbox"><div class="vqtt">接上一课的盘' +
+        '<span class="vqwhy">这一课是接着上一课讲的，原稿没再抄一遍</span></div>' +
         '<div class="vqpans">' +
         ex.map(function (b, i) {
           return '<div class="vqpan">' + vkeChartHTML(b, i) +
-            // ⚠️ 标「题库」两个字：课文里的盘用的是课内序号（命例 1、2…），
-            //    这里用的是题库的命例号，不标清楚两套编号会看混。
-            '<span class="vqsq">题库命例 ' + (b.seq || b.n) + '</span></div>';
+            '<span class="vqsq">第 ' + b.from + ' 课</span></div>';
         }).join('') + '</div></div>' : '') +
       '<div class="vbody">' + html + '</div>' +
       '<div class="row spread pad" style="margin-top:18px">' +

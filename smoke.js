@@ -796,15 +796,38 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok($('#vkeBody').innerHTML.length > 200, '阅读页有正文');
     ok($('#vkeBody').innerHTML.includes('vsegh'), '命例分了组（盘和它的分析包在一起）');
 
-    // 用户：「这里就是 v课原本的讲解加上命盘就行，讲解我会在题库里学」
-    //  ⇒ 课末尾只补**盘**，不搬题目的断／解／拆解。
+    // ⭐ 盘在原讲课稿里都有（用户 2026-09-30 指正），不从题库补、也不自己造。
+    //    只在「这一课接着上一课讲、笔记没再抄一遍盘」时，把上一课最后那个盘带下来。
     {
       const V2 = window.DATA_VKE;
       const withEx = V2.lessons.filter(x => x.extra && x.extra.length);
-      ok(withEx.length >= 60, `${withEx.length} 课补了盘（基线 60）`);
-      ok(V2.nExtra >= 100, `补进去 ${V2.nExtra} 个盘（基线 100）`);
-      ok(withEx.filter(x => !x.nChart).length >= 20,
-         `其中 ${withEx.filter(x => !x.nChart).length} 课原本一个盘都没有`);
+      ok(V2.nChart >= 155, `原稿自己解析出 ${V2.nChart} 个盘（基线 155）`);
+      // 盘＋大运逐柱查阴阳配对：阳干只配阳支。抓错字最灵的一招
+      {
+        const YG = new Set('甲丙戊庚壬'), YZ = new Set('子寅辰午申戌');
+        let bad = 0, cells = 0;
+        V2.lessons.forEach(L => L.segs.forEach(sg => {
+          const list = [];
+          if (sg.chart) list.push(sg.chart);
+          sg.blocks.forEach(b => { if (b.t === 'luck') list.push(b); });
+          list.forEach(x => {
+            for (let i = 0; i < Math.min(x.gan.length, x.zhi.length); i++) {
+              cells++;
+              if (YG.has(x.gan[i]) !== YZ.has(x.zhi[i])) bad++;
+            }
+          });
+        }));
+        ok(bad === 0, `${cells} 柱干支阴阳全部配对合法（不合法 ${bad}）`);
+      }
+      ok(withEx.length <= 15, `只有 ${withEx.length} 课要带上一课的盘（多了就是在乱补）`);
+      ok(withEx.every(x => x.extra.length === 1 && x.extra[0].from === x.k - 1),
+         '带的都是**紧挨着的上一课**、且每课只带 1 个');
+      ok(withEx.every(x => {
+        const P = V2.lessons.find(y => y.k === x.extra[0].from);
+        const last = P && P.segs.filter(s => s.chart).slice(-1)[0];
+        return last && last.chart.gan.join('') === x.extra[0].gan.join('');
+      }), '带的是上一课**最后**那个盘，干支对得上');
+      ok(withEx.every(x => !x.nChart), '带盘的课，原稿本来都没有盘');
       // 补的盘不能与课文里已有的重复
       const dup = V2.lessons.filter(L => {
         const mine = new Set(L.segs.filter(s => s.chart)
@@ -852,7 +875,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
         }
         ok(box.textContent
              .replace(/比肩|劫财|食神|伤官|偏财|正财|七杀|正官|偏印|正印|日主/g, '')
-             .replace(/原稿没抄下来，从题库补上|这一课的盘|题库命例/g, '')
+             .replace(/接上一课的盘|这一课是接着上一课讲的，原稿没再抄一遍|第\s*\d*\s*课/g, '')
              .replace(/[甲乙丙丁戊己庚辛壬癸子丑寅卯辰巳午未申酉戌亥年月日时乾坤造个\s\d·]/g, '')
              .length < 10, '这一块只有盘、十神和序号，没有讲解正文');
       }
