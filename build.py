@@ -529,7 +529,14 @@ def build_vke(quiz_items):
                     i = j2 + 1
                     continue
 
-            mp = re.match(r'^(乾|坤)\s*[\(（]?([^）\)]*)[\)）]?\s*$', line)
+            # ⚠️ 标注行后面跟什么都有可能：
+            #      「坤」｜「坤(问身体)」｜「乾(劫印化晋格)此命中央军委厅级干部」
+            #      「乾(通讯员，后来…成了财政局局长)」← 这条 60 多字
+            #    所以**不限长度**，只要求「乾/坤」后面紧跟空白或括号（排除"乾坤"这种词），
+            #    真伪一律由下面「下两行是不是干支」把关。
+            #    ⚠️ 旧正则要求括号闭合后直接结束 ⇒ 827 讲整个盘丢了（干支被当成大运）；
+            #       一度改成限 30 字 ⇒ 696 讲那条长注释又丢了。
+            mp = re.match(r'^(乾|坤)(?:\s*|[\s（(].*)$', line)
             if mp and cur is not None:
                 l1, _ = nxt(i)
                 l2, j2 = nxt(i, 2)
@@ -551,9 +558,12 @@ def build_vke(quiz_items):
                         note = ''                       # 后面是大运，不是文字注
                     else:
                         extra_gz = 0
+                    head_note = line[1:].strip()                 # 「乾/坤」之后的全部
+                    head_note = re.sub(r'^[\(（]|[\)）]$', '', head_note)
+                    head_note = head_note.replace('）', '·').replace(')', '·').strip(' ·')
                     cur['blocks'].append({'t': 'chart', 'g': mp.group(1),
                                           'gan': g[:4], 'zhi': z[:4],
-                                          'note': (mp.group(2).strip() + ' ' + note).strip()})
+                                          'note': (head_note + ' ' + note).strip()})
                     if extra_gz:
                         cur['blocks'].append({'t': 'luck', 'gan': g[4:], 'zhi': z[4:]})
                     i = j2 + 1

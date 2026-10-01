@@ -876,19 +876,55 @@ RENDER.vkeread = function (key) {
     // 否则往下读分析时又得往回翻。
     var ex = L.extra || [];
     var ci = ex.length - 1;          // 课文里的盘接着 extra 往下编号
-    var html = L.segs.map(function (sg) {
+    var segs = L.segs, parts = [], lead = '';
+    var blockHTML = function (b, me) {
+      if (b.t === 'luck') return vkeLuckHTML(b, me);
+      if (b.t === 'head') return '<h3 class="vh">' + esc(b.s) + '</h3>';
+      return '<p class="vp' + (b.star ? ' star' : '') + '">' + b.s + '</p>';
+    };
+    for (var si = 0; si < segs.length; si++) {
+      var sg = segs[si];
       var me = sg.chart ? sg.chart.gan[2] : null;
-      var inner = sg.blocks.map(function (b) {
-        if (b.t === 'luck') return vkeLuckHTML(b, me);
-        if (b.t === 'head') return '<h3 class="vh">' + esc(b.s) + '</h3>';
-        return '<p class="vp' + (b.star ? ' star' : '') + '">' + b.s + '</p>';
-      }).join('');
-      if (!sg.chart) return '<div class="vseg plain">' + inner + '</div>';
+      var inner = sg.blocks.map(function (b) { return blockHTML(b, me); }).join('');
+
+      // ⭐ 只有小标题、没有正文的一段（原稿里「格局 / 五行伤官格」写在盘**前面**），
+      //    是下一个盘的抬头 —— 并进那个盘的框里，别单独悬着。
+      if (!sg.chart && sg.blocks.length && sg.blocks.every(function (b) { return b.t === 'head'; })
+          && segs[si + 1] && segs[si + 1].chart) {
+        lead += inner;
+        continue;
+      }
+      if (!sg.chart) { parts.push('<div class="vseg plain">' + inner + '</div>'); continue; }
+
       ci++;
-      return '<div class="vseg"><div class="vsegh">命例 ' + (ci - ex.length + 1) +
-        (sg.chart.note ? ' · ' + esc(sg.chart.note) : '') + '</div>' +
-        vkeChartHTML(sg.chart, ci) + inner + '</div>';
-    }).join('');
+      var head = '<div class="vsegh">命例 ' + (ci - ex.length + 1) +
+        (sg.chart.note ? ' · ' + esc(sg.chart.note) : '') + '</div>';
+      var panHTML = vkeChartHTML(sg.chart, ci);
+
+      // ⭐ 并排双盘：原稿把两个对比命例横着摆，分析统一写在第二个盘后面。
+      //    第一个盘底下空着会像漏了内容 —— 两个盘放进同一个框。
+      var nx = segs[si + 1];
+      if (!sg.blocks.length && nx && nx.chart
+          && /^[一二①②]$/.test(sg.chart.note || '') && /^[一二①②]$/.test(nx.chart.note || '')) {
+        ci++;
+        var me2 = nx.chart.gan[2];
+        parts.push('<div class="vseg">' + lead +
+          '<div class="vsegh">命例 ' + (ci - ex.length) + '／' + (ci - ex.length + 1) +
+          ' · 两盘对照</div><div class="vqpans">' +
+          '<div class="vqpan">' + panHTML + '<span class="vqsq">' +
+          esc(sg.chart.g + sg.chart.note) + '</span></div>' +
+          '<div class="vqpan">' + vkeChartHTML(nx.chart, ci) +
+          '<span class="vqsq">' + esc(nx.chart.g + nx.chart.note) + '</span></div></div>' +
+          nx.blocks.map(function (b) { return blockHTML(b, me2); }).join('') + '</div>');
+        lead = '';
+        si++;                       // 第二个盘已经一起渲染了
+        continue;
+      }
+      parts.push('<div class="vseg">' + lead + head + panHTML + inner + '</div>');
+      lead = '';
+    }
+    if (lead) parts.push('<div class="vseg plain">' + lead + '</div>');
+    var html = parts.join('');
 
     body.innerHTML =
       (ex.length ? '<div class="vqbox"><div class="vqtt">接上一课的盘' +

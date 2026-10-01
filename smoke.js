@@ -750,6 +750,26 @@ const wait = () => new Promise(r => setTimeout(r, 30));
       const lp = V.lessons.find(x => x.segs.some(
         s => s.chart && /^[一二①②]$/.test(s.chart.note || '')));
       ok(lp && lp.nChart >= 2, `坤一坤二那课（第${lp && lp.k}课）各自独立成盘`);
+      // 原稿把两个对比命例横着摆、分析统一写在后面 ⇒ 页面上两盘要同框
+      if (lp) {
+        const row2 = D.querySelector('[data-lec="' + lp.k + '"]');
+        if (row2) { row2.click(); await wait(); await wait(); }
+        ok([...D.querySelectorAll('#vkeBody .vsegh')].some(e => /两盘对照/.test(e.textContent)),
+           '并排双盘渲染成同一个「两盘对照」框');
+      }
+      // 「格局 / 五行伤官格」这类写在盘**前面**的小标题，要跟着盘进同一个框
+      {
+        const L2 = V.lessons.find(x => x.segs.some(
+          s => !s.chart && s.blocks.length && s.blocks.every(b => b.t === 'head')) &&
+          x.segs.some(s => s.chart));
+        if (L2) {
+          const r3 = D.querySelector('[data-lec="' + L2.k + '"]');
+          if (r3) { r3.click(); await wait(); await wait(); }
+          const first = D.querySelector('#vkeBody .vseg');
+          ok(first && first.querySelector('.vh') && first.querySelector('.vchart'),
+             `第${L2.k}课：盘前面的小标题跟盘在同一个框里`);
+        }
+      }
     }
 
     // ⭐ 核心：一个命例和它的分析必须在同一课里 ——
