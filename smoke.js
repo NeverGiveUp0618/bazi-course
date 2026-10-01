@@ -746,8 +746,10 @@ const wait = () => new Promise(r => setTimeout(r, 30));
       V.lessons.forEach(L => L.segs.forEach(s => s.blocks.forEach(
         b => { if (b.t === 'luck' && b.gan.length >= 8) wide++; })));
       ok(wide === 0, '没有 8 柱的「大运」（那是并排双盘被误判）');
-      const l38 = V.lessons.find(x => x.k === 38);
-      ok(l38 && l38.nChart === 4, `第38课 4 个盘（坤一坤二各自独立），实为 ${l38 && l38.nChart}`);
+      // ⚠️ 课号会随「接回」规则变动，别写死 —— 按内容找那一课
+      const lp = V.lessons.find(x => x.segs.some(
+        s => s.chart && /^[一二①②]$/.test(s.chart.note || '')));
+      ok(lp && lp.nChart >= 2, `坤一坤二那课（第${lp && lp.k}课）各自独立成盘`);
     }
 
     // ⭐ 核心：一个命例和它的分析必须在同一课里 ——

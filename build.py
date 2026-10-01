@@ -599,13 +599,37 @@ def build_vke(quiz_items):
     merged, fixed = [], [0]
     for L in raw:
         blocks = L['blocks']
-        if merged and not L['title'] and any(b['t'] == 'chart' for b in merged[-1]['blocks']):
+        # ⚠️ 讲次行带的「标题」要分两种：「基础知识小老师」「开始财运」是**换主题**，一个字不搬；
+        #    「(大老师)」「(东西很多，要反复听)」这种**括号备注**不算换主题，照搬。
+        topic = L['title'].strip()
+        if topic[:1] in '（(':
+            topic = ''
+        if merged and not topic and any(b['t'] == 'chart' for b in merged[-1]['blocks']):
+            # ⭐ 从开头一路吃到**第一个盘**为止 —— 这中间的内容必然是接着
+            #    上一课那个盘说的（视频每 17 分钟硬剪一刀，分析常被拦腰截断）。
+            # ⚠️ 「分析」这个小标题也要一起吃：只搬正文块会被它挡住
+            #    （第47课开头那段讲的是第46课的癸戊壬壬／卯午子寅）。
+            # ⚠️ 必须用循环、不能只吃一轮：722 讲开头的正文先被搬走，
+            #    剩下的「分析＋六段」又会单独成课（第41课就是这么漏的）。
             cut = 0
-            while cut < len(blocks) and blocks[cut]['t'] == 'p':
-                cut += 1
+            while cut < len(blocks):
+                bk = blocks[cut]
+                if bk['t'] == 'p':
+                    cut += 1
+                elif (bk['t'] == 'head' and re.search(r'分析|续', bk.get('s', ''))
+                        and cut + 1 < len(blocks) and blocks[cut + 1]['t'] == 'p'):
+                    cut += 1            # 这个小标题后面确实跟着正文
+                else:
+                    break               # 撞上盘／大运／别的小标题，停
             if cut:                      # 开头确实是接着上一课说的
                 fixed[0] += 1
-                merged[-1]['blocks'].extend(blocks[:cut])
+                moved = blocks[:cut]
+                # 上一课末尾本来就在「分析」里了，别再搬一个同名小标题过去凑成两个
+                if (moved[0]['t'] == 'head'
+                        and any(b.get('t') == 'head' and b.get('s') == moved[0]['s']
+                                for b in merged[-1]['blocks'][-8:])):
+                    moved = moved[1:]
+                merged[-1]['blocks'].extend(moved)
                 merged[-1]['src'].extend(L['src'])   # 溯源：这一课还引了哪几讲
                 blocks = blocks[cut:]
         if blocks:
