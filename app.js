@@ -890,11 +890,12 @@ var KT_CANG = { 子: '癸', 丑: '己癸辛', 寅: '甲丙戊', 卯: '乙', 辰:
 function ktCardHTML(K, on) {
   return '<div class="card vvol' + (on ? ' open' : '') + '" data-vol="课">' +
     '<div class="row spread tap vvolhd">' +
-    '<div><b style="font-size:15px">📒 课堂笔记 · 中级班讲义</b>' +
-    '<div class="muted" style="margin-top:2px">讲义 p' + K.chaps[0].pg[0] + '–' + K.chaps[K.chaps.length - 1].pg[1] +
-    ' · ' + K.chaps.length + ' 章 · ' + K.nChart + ' 个命盘</div></div>' +
+    '<div><b style="font-size:15px">📒 课堂笔记 · 中级班</b>' +
+    '<div class="muted" style="margin-top:2px">' + K.parts.length + ' 部分 · ' + K.chaps.length + ' 章 · ' +
+    K.nChart + ' 个命盘</div></div>' +
     '<span class="vcar">' + (on ? '▾' : '▸') + '</span></div>' +
-    '<div class="vlist"><div class="muted ktintro">逐页转录、原文照录（原书笔误也照录）。' +
+    '<div class="vlist"><div class="muted ktintro">前三部分是五行、干支作用、十神的思维导图（讲义 p252–264）和口诀、地支关系总表；' +
+    '后四部分是讲义 p44–251 逐页转录。原文照录（原书笔误也照录）。' +
     '读的时候<b>盘钉在顶上</b>；正文里的盘多一行<b>藏干</b>（本气·中气·余气）。' +
     '灰色小标「讲义 pNN」是原书页码，可对照原书。</div>' +
     K.parts.map(function (P) {
@@ -940,7 +941,7 @@ function renderKt(k) {
         ktChartHTML(c, +i) + (c.pen ? '<div class="ktpen">' + esc(c.pen) + '</div>' : '') + '</div>';
     });
     body.innerHTML =
-      '<div class="kthead"><div class="ktkick">' + esc(C.part.replace(/^\S+\s/, '')) + ' · 讲义 p' + C.pg[0] + '–' + C.pg[1] + '</div>' +
+      '<div class="kthead"><div class="ktkick">' + esc(C.part.replace(/^\S+\s/, '')) + ' · ' + esc(C.pgtxt) + '</div>' +
       '<h1 class="ktt">' + esc(C.title) + '</h1></div>' +
       '<div class="vbody ktbody">' + html + '</div>' +
       '<div class="row spread pad" style="margin-top:18px">' +

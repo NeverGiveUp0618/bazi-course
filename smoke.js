@@ -926,12 +926,18 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   console.log('\n— 课堂笔记（中级班讲义 p44–251，挂在 v课笔记 列表最下面）—');
   {
     const K = window.DATA_KT;
-    ok(K && K.chaps.length >= 15, `课堂笔记 ${K.chaps.length} 章（基线 15）`);
+    ok(K && K.chaps.length >= 32, `课堂笔记 ${K.chaps.length} 章（基线 32）`);
+    ok(K.parts.length === 7, '七个部分（五行／干支作用／十神口诀关系表＋讲义四部分）');
     ok(K.nChart >= 84, `命盘 ${K.nChart} 个（基线 84）`);
-    // 讲义页码 44–251 一页不缺、不重
+    // 讲义页码：思维导图 p252–264 ＋ 逐页转录 p44–251，一页不缺、不重，各段内顺序不乱
     const pgs = K.chaps.flatMap(c => [...c.html.matchAll(/讲义 p(\d+)/g)].map(m => +m[1]));
-    ok(pgs.length === 208 && new Set(pgs).size === 208 && pgs.every((v, i) => v === 44 + i),
-       '讲义页码 p44–p251 逐页都在、顺序不乱');
+    const want = Array.from({ length: 264 - 44 + 1 }, (_, i) => 44 + i);
+    ok(pgs.length === want.length && [...pgs].sort((a, b) => a - b).every((v, i) => v === want[i]),
+       '讲义页码 p44–p264 逐页都在、不重');
+    ok(pgs.slice(13).every((v, i) => v === 44 + i), '讲义 p44–251 顺序不乱');
+    const kj = K.chaps.find(c => /口诀/.test(c.title));
+    ok(kj && (kj.html.match(/class="kttag">\d+</g) || []).length === 61, '口诀 1—61 条一条不少');
+    ok(!/任锦泉|中观国学|座下/.test(K.chaps.map(c => c.title + c.html).join('')), '没有真名、机构名；统一写「坐下」');
     const all = K.chaps.map(c => c.html).join('');
     ok(!/\*\*|\[\[|!pan|@p |<ol|⟦/.test(all), '没有残留的源语法（** [[ !pan @p）也没被误转成有序列表');
     ok(!/视频/.test(all), '课堂笔记里没有「视频」二字');
@@ -955,9 +961,9 @@ const wait = () => new Promise(r => setTimeout(r, 30));
       const key = el => [...el.querySelectorAll('.a,.b')].map(x => x.textContent).join('');
       if (!body.every((e, i) => key(e) === key(top[i]))) ok(false, `第${C.k}章 吸顶条与正文盘顺序对不上`);
     }
-    ok(true, '15 章逐章渲染：正文盘数＝吸顶盘数＝数据，顺序一致');
+    ok(true, K.chaps.length + ' 章逐章渲染：正文盘数＝吸顶盘数＝数据，顺序一致');
 
-    await go('k1');
+    await go('k' + K.chaps.find(c => c.charts.length).k);
     ok($('#ttl').textContent.includes('课堂笔记'), '标题显示课堂笔记');
     const c0 = D.querySelector('#vkeBody .ktchart');
     const ss = [...c0.querySelectorAll('.ss')].map(x => x.textContent);

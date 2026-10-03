@@ -6,6 +6,7 @@
 
 用法：  python3 build.py
 """
+import html
 import io
 import json
 import os
@@ -714,10 +715,13 @@ def build_kt():
             if s.startswith('@chap '):
                 flush()
                 ch = {'k': len(chaps) + 1, 'title': s[6:].strip(), 'part': part,
-                      'pages': [], 'charts': [], 'html': ''}
+                      'pages': [], 'labels': [], 'charts': [], 'html': ''}
                 chaps.append(ch); parts[-1]['chaps'].append(ch['k'])
                 out, depth[0] = [], 0
                 continue
+            if s.startswith('@pl '):            # 非讲义页码（口诀册、修订版 PDF）
+                lb = s[4:].strip(); ch['labels'].append(lb)
+                out.append(f'<span class="ktpg">{html.escape(lb)}</span>'); continue
             if s.startswith('@p '):
                 pg = int(s[3:]); ch['pages'].append(pg)
                 out.append(f'<span class="ktpg">讲义 p{pg}</span>'); continue
@@ -754,7 +758,9 @@ def build_kt():
                 h = ['<div class="tw"><table>']
                 for r, cells in enumerate(rows):
                     tg = 'th' if r == 0 else 'td'
-                    h.append('<tr>' + ''.join(f'<{tg}>{inl(c)}</{tg}>' for c in cells) + '</tr>')
+                    # 单元格里的 <br> 是真换行：拆开逐段渲染再接回（整段交给 md2html 会被转义）
+                    h.append('<tr>' + ''.join(f'<{tg}>' + '<br>'.join(inl(x) for x in c.split('<br>')) + f'</{tg}>'
+                                              for c in cells) + '</tr>')
                 h.append('</table></div>')
                 block = (f'<div class="kttt">{inl(ttl)}</div>' if ttl else '') + ''.join(h)
             elif s.startswith('>['):
@@ -781,8 +787,13 @@ def build_kt():
             out.append(f'<p>{inl(s)}</p>')
         flush()
     for c in chaps:
-        c['pg'] = [min(c['pages']), max(c['pages'])]
-        del c['pages']
+        pg = c.pop('pages'); lb = c.pop('labels')
+        if pg:
+            c['pg'] = [min(pg), max(pg)]
+            c['pgtxt'] = '讲义 p%d' % pg[0] + ('–%d' % max(pg) if max(pg) != min(pg) else '')
+        else:
+            c['pg'] = []
+            c['pgtxt'] = lb[0] + ('…' if len(lb) > 1 else '')
     return {'title': '课堂笔记 · 中级班讲义', 'parts': parts, 'chaps': chaps,
             'nChart': sum(len(c['charts']) for c in chaps)}
 
