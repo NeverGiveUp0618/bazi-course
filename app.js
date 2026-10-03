@@ -806,6 +806,19 @@ function vkeLuckHTML(b, me) {
     }).join('') + '</div></div>';
 }
 
+/* 吸顶条里的大运：版式与盘一致（十神／干／支／十神），竖排「大运」作标签。
+   外层 .vpluck 自己横向滚动，盘不跟着滑走。 */
+function vkePanLuckHTML(b, me) {
+  return '<div class="vpluck"><span class="lb">大运</span><div class="cols">' +
+    b.gan.map(function (g, i) {
+      var z = b.zhi[i] || '';
+      return '<div class="c"><span class="ss">' + shiShen(me, g) + '</span>' +
+        '<span class="a ' + wxCls(g) + '">' + g + '</span>' +
+        '<span class="b ' + wxCls(z) + '">' + z + '</span>' +
+        '<span class="ss">' + (z ? shiShen(me, z) : '') + '</span></div>';
+    }).join('') + '</div></div>';
+}
+
 /* 讲的一句话摘要：取第一段正文，截断。原文没标题，列表全靠它认人。 */
 function vkeSummary(L) {
   if (L.title) return L.title;
@@ -940,12 +953,20 @@ RENDER.vkeread = function (key) {
       (k < V.nLesson ? '<span class="chip tap" data-lec="' + (k + 1) + '">第 ' + (k + 1) + ' 课 ›</span>' : '<span></span>') +
       '</div>';
 
-    // 吸顶条按**页面顺序**：先补上来的那几个，再课文里的
-    var charts = ex.concat(
-      L.segs.filter(function (sg) { return sg.chart; }).map(function (sg) { return sg.chart; }));
-    pan.innerHTML = charts.length
-      ? '<div class="vpanin">' + charts.map(function (b, i) { return vkeChartHTML(b, i); }).join('') + '</div>'
+    // 吸顶条按**页面顺序**：先补上来的那几个，再课文里的。
+    // ⭐ 带大运的命例，大运接在盘后面一起吸顶：盘固定，大运放不下时单独左右滑。
+    //    大运只认**同一段里**的那条（29 处全在盘的同一段，跨段去猜会挂错盘）。
+    var items = ex.map(function (b) { return { b: b }; }).concat(
+      L.segs.filter(function (sg) { return sg.chart; }).map(function (sg) {
+        return { b: sg.chart, luck: sg.blocks.filter(function (x) { return x.t === 'luck'; })[0] };
+      }));
+    pan.innerHTML = items.length
+      ? '<div class="vpanin">' + items.map(function (it, i) {
+          return '<div class="vpg">' + vkeChartHTML(it.b, i) +
+            (it.luck ? vkePanLuckHTML(it.luck, it.b.gan[2]) : '') + '</div>';
+        }).join('') + '</div>'
       : '';
+    var charts = items;
     pan.classList.toggle('hide', !charts.length);
     vkeStartSpy();
 
@@ -971,7 +992,10 @@ function vkeStartSpy() {
     var r = cs[at] && cs[at].getBoundingClientRect();
     var visible = r && r.bottom > 92 && r.top < window.innerHeight;
     pan.classList.toggle('off', !!visible);
-    $$('#vkePan .vchart').forEach(function (el, i) { el.classList.toggle('on', i === at); });
+    $$('#vkePan .vpg').forEach(function (el, i) {
+      el.classList.toggle('on', i === at);
+      el.firstChild.classList.toggle('on', i === at);
+    });
     var inn = $('#vkePan .vpanin');
     if (inn && inn.children[at]) inn.scrollLeft = inn.children[at].offsetLeft - 8;
   };
