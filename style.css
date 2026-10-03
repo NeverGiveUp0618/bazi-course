@@ -905,3 +905,45 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .doc details.ans[open]>summary{border-bottom:1px solid var(--line)}
 .doc details.ans>*:not(summary){margin-left:15px;margin-right:15px}
 .doc details.ans>*:last-child{margin-bottom:12px}
+
+/* ===== 课堂笔记 · 中级班讲义（挂在 v课笔记 列表最下面，与 v课 共用阅读页与吸顶条）===== */
+.ktintro{font-size:12.5px; line-height:1.8; margin:2px 0 6px}
+.ktpart{margin:14px 0 2px; font-family:Georgia,"Songti SC",serif; font-size:13px; font-weight:700;
+  color:var(--indigo); letter-spacing:1px}
+.kthead{margin:4px 0 6px; padding-bottom:10px; border-bottom:1px solid var(--line)}
+.ktkick{font-size:12px; color:var(--ink3); letter-spacing:.5px}
+.doc h1.ktt{margin:4px 0 0; font-size:21px}
+/* 讲义页码：右侧灰色小标，对照原书用，不抢眼 */
+.ktpg{display:block; width:max-content; margin:14px 0 4px auto; font-size:11px; color:var(--ink3);
+  border:1px solid var(--line); border-radius:999px; padding:0 9px; line-height:1.7; letter-spacing:.5px}
+.ktbody{font-size:15px}
+.ktbody p{margin:7px 0; line-height:1.9}
+.ktbody ul{margin:4px 0; padding-left:20px}
+.ktbody li{margin:3px 0; line-height:1.85}
+.ktbody li::marker{color:var(--ink3)}
+.ktbody h2{margin:24px 0 10px}
+.ktbody h3{margin:20px 0 8px; color:var(--indigo)}
+.ktbody h4{margin:16px 0 6px; color:var(--ink)}
+.ktbody h5{margin:14px 0 4px; color:var(--ink2)}
+/* 课件截图转写的文字框 */
+.ktsl{margin:10px 0; padding:9px 12px 10px; border-left:3px solid var(--indigo);
+  border-radius:0 10px 10px 0; background:color-mix(in srgb,var(--indigo) 7%, transparent);
+  font-size:14px; line-height:1.8; color:var(--ink2)}
+.kttag{display:inline-block; margin:0 8px 3px 0; padding:0 8px; border-radius:5px;
+  background:var(--indigo); color:#fff; font-size:11px; font-weight:600; line-height:1.8; vertical-align:1px}
+:root[data-theme="dark"] .kttag{color:#111}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .kttag{color:#111}}
+.ktsl>div:first-of-type{display:inline}
+.kttt{margin:12px 0 -6px; font-size:13px; font-weight:700; color:var(--indigo)}
+/* 作业答案 */
+.ktans{color:var(--cinnabar); text-decoration:underline; text-decoration-color:color-mix(in srgb,var(--cinnabar) 40%, transparent);
+  text-underline-offset:3px}
+/* 命例：标题＋盘＋图中红笔说明 */
+.ktcase{margin:10px 0 12px; padding:10px 12px 8px; border:1px solid var(--line); border-radius:13px;
+  background:color-mix(in srgb,var(--bg2) 55%, transparent)}
+.ktcase .vchart{margin:6px 0 4px}
+.ktpen{font-size:12px; color:var(--ink3); line-height:1.7; margin-top:2px}
+.ktchart .cg{display:block; margin-top:3px; padding-top:3px; border-top:1px dashed var(--line);
+  font-size:11.5px; line-height:1.35}
+.ktchart .cg i{display:block; font-style:normal}
+.ktchart .ag{display:block; margin-top:3px; font-size:10px; color:var(--indigo); white-space:nowrap}

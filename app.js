@@ -75,6 +75,8 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
+// 课堂笔记（中级班讲义 p44–251，用户拍照逐页转录）400KB，挂在 v课笔记 列表最下面，点进去才要
+var needKt     = function () { return need('data-kt.js', 'DATA_KT'); };
 
 /* ============================ 路由 ============================
  * 套壳(view.html)里 iframe 与顶层共享同一条 session history。
@@ -871,11 +873,92 @@ RENDER.vke = function () {
               (L.nChart ? '<span class="vc">' + L.nChart + ' 盘</span>' : '') +
               ((L.extra || []).length ? '<span class="vq">+' + L.extra.length + ' 盘</span>' : '') + '</div>';
           }).join('') + '</div></div>';
-      }).join('');
+      }).join('') + '<div id="ktCard"></div>';
+    needKt().then(function (K) { $('#ktCard').outerHTML = ktCardHTML(K, open === '课'); });
   });
 };
 
+/* ============================ 课堂笔记 ============================
+ * 中级班讲义（印刷版）p44–251，用户拍照、逐页转录，原文照录。
+ * 跟 v课笔记 共用阅读页：key 以 k 开头（k1…k15）就走这里，
+ * 吸顶条与滚动跟随（vkeStartSpy）原样复用——所以正文里的盘也必须是 .vchart，
+ * 且与吸顶条**一一对应、顺序一致**。
+ */
+var KT_CANG = { 子: '癸', 丑: '己癸辛', 寅: '甲丙戊', 卯: '乙', 辰: '戊乙癸', 巳: '丙庚戊',
+                午: '丁己', 未: '己丁乙', 申: '庚壬戊', 酉: '辛', 戌: '戊辛丁', 亥: '壬甲' };
+
+function ktCardHTML(K, on) {
+  return '<div class="card vvol' + (on ? ' open' : '') + '" data-vol="课">' +
+    '<div class="row spread tap vvolhd">' +
+    '<div><b style="font-size:15px">📒 课堂笔记 · 中级班讲义</b>' +
+    '<div class="muted" style="margin-top:2px">讲义 p' + K.chaps[0].pg[0] + '–' + K.chaps[K.chaps.length - 1].pg[1] +
+    ' · ' + K.chaps.length + ' 章 · ' + K.nChart + ' 个命盘</div></div>' +
+    '<span class="vcar">' + (on ? '▾' : '▸') + '</span></div>' +
+    '<div class="vlist"><div class="muted ktintro">逐页转录、原文照录（原书笔误也照录）。' +
+    '读的时候<b>盘钉在顶上</b>；正文里的盘多一行<b>藏干</b>（本气·中气·余气）。' +
+    '灰色小标「讲义 pNN」是原书页码，可对照原书。</div>' +
+    K.parts.map(function (P) {
+      return '<div class="ktpart">' + esc(P.name) + '</div>' + P.chaps.map(function (k) {
+        var C = K.chaps[k - 1];
+        return '<div class="vrow tap" data-lec="k' + k + '">' +
+          '<span class="vn">' + k + '</span>' +
+          '<span class="vs">' + esc(C.title) + '</span>' +
+          (C.charts.length ? '<span class="vc">' + C.charts.length + ' 盘</span>' : '') + '</div>';
+      }).join('');
+    }).join('') + '</div></div>';
+}
+
+/* 正文里的盘：与 v课 同一套（十神／天干／地支／十神），下面多两行——藏干、宫位大限（原图有才有） */
+function ktChartHTML(c, idx) {
+  var me = c.gan[2];
+  return '<div class="vchart ktchart" data-ci="' + idx + '">' +
+    '<span class="lb">' + esc(c.g) + '造</span>' +
+    '<div class="cols">' + [0, 1, 2, 3].map(function (i) {
+      return '<div class="c' + (i === 2 ? ' day' : '') + '">' +
+        '<span class="ss' + (i === 2 ? ' me' : '') + '">' + shiShen(me, c.gan[i], i === 2) + '</span>' +
+        '<span class="a ' + wxCls(c.gan[i]) + '">' + c.gan[i] + '</span>' +
+        '<span class="b ' + wxCls(c.zhi[i]) + '">' + c.zhi[i] + '</span>' +
+        '<span class="ss">' + shiShen(me, c.zhi[i]) + '</span>' +
+        '<span class="cg">' + (KT_CANG[c.zhi[i]] || '').split('').map(function (g) {
+          return '<i class="' + wxCls(g) + '">' + g + '</i>';
+        }).join('') + '</span>' +
+        (c.age && c.age.length ? '<span class="ag">' + esc(c.age[i]) + '</span>' : '') + '</div>';
+    }).join('') + '</div></div>';
+}
+
+function renderKt(k) {
+  var pan = $('#vkePan'), body = $('#vkeBody');
+  needKt().then(function (K) {
+    var C = K.chaps[k - 1];
+    if (!C) return;
+    $('#ttl').textContent = '课堂笔记 · ' + k;
+    var n = 0;
+    var html = C.html.replace(/<div class="ktc" data-i="(\d+)"><\/div>/g, function (_, i) {
+      var c = C.charts[+i];
+      n++;
+      return '<div class="ktcase"><div class="vsegh">命例 ' + n + (c.title ? ' · ' + esc(c.title) : '') + '</div>' +
+        ktChartHTML(c, +i) + (c.pen ? '<div class="ktpen">' + esc(c.pen) + '</div>' : '') + '</div>';
+    });
+    body.innerHTML =
+      '<div class="kthead"><div class="ktkick">' + esc(C.part.replace(/^\S+\s/, '')) + ' · 讲义 p' + C.pg[0] + '–' + C.pg[1] + '</div>' +
+      '<h1 class="ktt">' + esc(C.title) + '</h1></div>' +
+      '<div class="vbody ktbody">' + html + '</div>' +
+      '<div class="row spread pad" style="margin-top:18px">' +
+      (k > 1 ? '<span class="chip tap" data-lec="k' + (k - 1) + '">‹ ' + esc(K.chaps[k - 2].title) + '</span>' : '<span></span>') +
+      (k < K.chaps.length ? '<span class="chip tap" data-lec="k' + (k + 1) + '">' + esc(K.chaps[k].title) + ' ›</span>' : '<span></span>') +
+      '</div>';
+    pan.innerHTML = C.charts.length
+      ? '<div class="vpanin">' + C.charts.map(function (c, i) {
+          return '<div class="vpg">' + vkeChartHTML(c, i) + '</div>';
+        }).join('') + '</div>'
+      : '';
+    pan.classList.toggle('hide', !C.charts.length);
+    vkeStartSpy();
+  });
+}
+
 RENDER.vkeread = function (key) {
+  if (/^k\d+$/.test(String(key))) return renderKt(+String(key).slice(1));
   var pan = $('#vkePan'), body = $('#vkeBody');
   body.innerHTML = '<div class="muted pad">载入中…</div>';
   needVke().then(function (V) {

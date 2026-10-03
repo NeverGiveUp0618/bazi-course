@@ -24,7 +24,8 @@ run('data/data-notes.js');
 run('data/data-quiz.js');
 run('data/data-index.js');
 run('data/data-desk.js');
-run('data/data-vke.js');   // ⚠️ 新增数据文件必须同步到这份清单，否则按需加载在 jsdom 里拿不到
+run('data/data-vke.js');
+run('data/data-kt.js');    // ⚠️ 新增数据文件必须同步到这份清单，否则按需加载在 jsdom 里拿不到
 
 // 让 app.js 的按需加载直接命中已注入的全局
 window.eval(`
@@ -920,6 +921,51 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     }
     const c1 = D.querySelector('#vkeBody .vchart .a');
     ok(c1 && /w-(mu|huo|tu|jin|shui)/.test(c1.className), '盘上的天干有五行色');
+  }
+
+  console.log('\n— 课堂笔记（中级班讲义 p44–251，挂在 v课笔记 列表最下面）—');
+  {
+    const K = window.DATA_KT;
+    ok(K && K.chaps.length >= 15, `课堂笔记 ${K.chaps.length} 章（基线 15）`);
+    ok(K.nChart >= 84, `命盘 ${K.nChart} 个（基线 84）`);
+    // 讲义页码 44–251 一页不缺、不重
+    const pgs = K.chaps.flatMap(c => [...c.html.matchAll(/讲义 p(\d+)/g)].map(m => +m[1]));
+    ok(pgs.length === 208 && new Set(pgs).size === 208 && pgs.every((v, i) => v === 44 + i),
+       '讲义页码 p44–p251 逐页都在、顺序不乱');
+    const all = K.chaps.map(c => c.html).join('');
+    ok(!/\*\*|\[\[|!pan|@p |<ol|⟦/.test(all), '没有残留的源语法（** [[ !pan @p）也没被误转成有序列表');
+    ok(!/视频/.test(all), '课堂笔记里没有「视频」二字');
+    ok((all.match(/<ul>/g) || []).length === (all.match(/<\/ul>/g) || []).length, '列表开闭成对');
+
+    // app.js 是 IIFE，外面调不到 show()：造一个带 data-lec 的元素去点（委托的点击处理会接住）
+    const go = async lec => { const a = D.createElement('span'); a.dataset.lec = lec; D.body.appendChild(a);
+      a.click(); a.remove(); await wait(); await wait(); };
+    const back = D.createElement('span'); back.dataset.go = 'vke'; D.body.appendChild(back);
+    back.click(); back.remove(); await wait(); await wait();
+    ok(!!D.querySelector('#vkeList [data-vol="课"]'), 'v课笔记列表最下面有「课堂笔记」');
+    ok(D.querySelectorAll('#vkeList [data-lec^="k"]').length === K.chaps.length, '课堂笔记每章一行');
+
+    for (const C of K.chaps) {
+      await go('k' + C.k);
+      const body = [...D.querySelectorAll('#vkeBody .vchart')], top = [...D.querySelectorAll('#vkePan .vchart')];
+      if (body.length !== C.charts.length || top.length !== C.charts.length) {
+        ok(false, `第${C.k}章 盘数：正文${body.length}／吸顶${top.length}／数据${C.charts.length}`); continue;
+      }
+      // 吸顶条与正文一一对应（spy 靠下标）：比四柱八字
+      const key = el => [...el.querySelectorAll('.a,.b')].map(x => x.textContent).join('');
+      if (!body.every((e, i) => key(e) === key(top[i]))) ok(false, `第${C.k}章 吸顶条与正文盘顺序对不上`);
+    }
+    ok(true, '15 章逐章渲染：正文盘数＝吸顶盘数＝数据，顺序一致');
+
+    await go('k1');
+    ok($('#ttl').textContent.includes('课堂笔记'), '标题显示课堂笔记');
+    const c0 = D.querySelector('#vkeBody .ktchart');
+    const ss = [...c0.querySelectorAll('.ss')].map(x => x.textContent);
+    // 乙卯 丙戌 己亥 癸酉（日主己土）：讲义原文「七杀／正印／元男／偏财」，地支 七杀／劫财／正财／食神
+    ok(ss.join() === '七杀,七杀,正印,劫财,日主,正财,偏财,食神', '第一个盘十神与讲义一致（天地阴阳诀）');
+    ok([...c0.querySelectorAll('.cg')].map(x => x.textContent).join('|') === '乙|戊辛丁|壬甲|辛',
+       '藏干按地支藏干表（本气·中气·余气）');
+    ok(c0.querySelector('.cg i').className.includes('w-mu'), '藏干也按五行上色');
   }
 
   console.log('\n— 主题 —');

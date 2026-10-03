@@ -668,6 +668,125 @@ def build_vke(quiz_items):
             'nFixed': fixed[0]}
 
 
+def build_kt():
+    """课堂笔记 · 中级班讲义（印刷版）p44–251 —— 用户拍照逐页转录。
+
+    源：content/课堂笔记/*.md，语法见源文件开头的 %% 注释。
+    与 v课笔记共用阅读页（盘吸顶＋滚动跟随），所以盘不在这里渲染成 HTML：
+    正文里只放占位 <div class="ktc" data-i="N">，盘数据单独给出，前端用
+    vkeChartHTML 画——**十神只有一处实现**（app.js shiShen，天地阴阳诀）。
+    """
+    GAN, ZHI = '甲乙丙丁戊己庚辛壬癸', '子丑寅卯辰巳午未申酉戌亥'
+    d = os.path.join(SRC, '课堂笔记')
+    files = sorted(f for f in os.listdir(d) if f.endswith('.md') and not f.startswith('_'))
+
+    def inl(t):
+        # ⚠️ 「1. 年柱代表…」「2.正官与七杀的差异」这类行首编号会被 md2html 当成有序列表，
+        #    编号保留原样、只把后半句交给行内渲染
+        m0 = re.match(r'^(\d+\.\s*)(.*)$', t)
+        if m0:
+            return m0.group(1) + inl(m0.group(2))
+        t = re.sub(r'\[\[(.+?)\]\]', lambda m: '⟦' + m.group(1) + '⟧', t)   # 作业答案，别被当 wiki 链接
+        h = _inline(t)
+        return h.replace('⟦', '<span class="ktans">').replace('⟧', '</span>')
+
+    parts, chaps = [], []
+    for fn in files:
+        raw = read(os.path.join(d, fn)).split('\n')
+        part, ch, out, depth, i = '', None, None, [0], 0
+
+        def close(to=0):
+            while depth[0] > to:
+                out.append('</li></ul>'); depth[0] -= 1
+
+        def flush():
+            if ch is not None:
+                close(); ch['html'] = '\n'.join(out)
+
+        while i < len(raw):
+            line = raw[i]; s = line.strip()
+            ind = (len(line) - len(line.lstrip(' '))) // 2
+            i += 1
+            if not s or s.startswith('%%'):
+                continue
+            if s.startswith('@part '):
+                part = s[6:].strip(); parts.append({'name': part, 'chaps': []}); continue
+            if s.startswith('@chap '):
+                flush()
+                ch = {'k': len(chaps) + 1, 'title': s[6:].strip(), 'part': part,
+                      'pages': [], 'charts': [], 'html': ''}
+                chaps.append(ch); parts[-1]['chaps'].append(ch['k'])
+                out, depth[0] = [], 0
+                continue
+            if s.startswith('@p '):
+                pg = int(s[3:]); ch['pages'].append(pg)
+                out.append(f'<span class="ktpg">讲义 p{pg}</span>'); continue
+            if s.startswith('#'):
+                close()
+                lv = len(s) - len(s.lstrip('#'))
+                out.append(f'<h{min(lv + 1, 5)} class="kth{lv}">{inl(s[lv:].strip())}</h{min(lv + 1, 5)}>')
+                continue
+            block = None
+            if s.startswith('!pan'):
+                body = s.split(' ', 1)[1]
+                f = [x.strip() for x in body.split('|')]
+                pil = f[1].split()
+                assert len(pil) == 4 and all(len(x) == 2 and x[0] in GAN and x[1] in ZHI for x in pil), (fn, s)
+                assert f[2] in ('元男', '元女'), (fn, s)
+                age = f[3].split() if len(f) > 3 and f[3] else []
+                assert not age or len(age) == 4, (fn, s)
+                title = re.sub(r'^案例(分析|回顾|答疑|解析)[-0-9]*\s*', '', f[0]).strip()
+                ch['charts'].append({'g': '乾' if f[2] == '元男' else '坤',
+                                     'gan': [x[0] for x in pil], 'zhi': [x[1] for x in pil],
+                                     'note': '', 'title': title, 'age': age,
+                                     'pen': f[4] if len(f) > 4 else '', 'zss': 0 if s.startswith('!pan0') else 1})
+                block = f'<div class="ktc" data-i="{len(ch["charts"]) - 1}"></div>'
+            elif s.startswith('!table'):
+                ttl, rows = s[6:].strip(), []
+                while not raw[i].strip().startswith('!endtable'):
+                    t = raw[i].strip(); i += 1
+                    if t.startswith('@p '):
+                        pg = int(t[3:]); ch['pages'].append(pg)
+                        out.append(f'<span class="ktpg">讲义 p{pg}</span>')
+                    elif t:
+                        rows.append([c.strip() for c in t[1:].split('|')])
+                i += 1
+                h = ['<div class="tw"><table>']
+                for r, cells in enumerate(rows):
+                    tg = 'th' if r == 0 else 'td'
+                    h.append('<tr>' + ''.join(f'<{tg}>{inl(c)}</{tg}>' for c in cells) + '</tr>')
+                h.append('</table></div>')
+                block = (f'<div class="kttt">{inl(ttl)}</div>' if ttl else '') + ''.join(h)
+            elif s.startswith('>['):
+                m = re.match(r'>\[(.*?)\]\s*(.*)', s)
+                rows = [m.group(2)]
+                while i < len(raw) and raw[i].strip().startswith('> '):
+                    rows.append(raw[i].strip()[2:]); i += 1
+                block = ('<div class="ktsl"><span class="kttag">' + (inl(m.group(1)) or '课件') + '</span>' +
+                         ''.join(f'<div>{inl(r)}</div>' for r in rows if r.strip()) + '</div>')
+            if block is not None:
+                close(min(ind, depth[0]))
+                out.append(block)
+                continue
+            if s.startswith('- '):
+                lv = ind + 1
+                if lv > depth[0]:
+                    while depth[0] < lv:
+                        out.append('<ul><li>'); depth[0] += 1
+                else:
+                    close(lv); out.append('</li><li>')
+                out.append(inl(s[2:]))
+                continue
+            close()
+            out.append(f'<p>{inl(s)}</p>')
+        flush()
+    for c in chaps:
+        c['pg'] = [min(c['pages']), max(c['pages'])]
+        del c['pages']
+    return {'title': '课堂笔记 · 中级班讲义', 'parts': parts, 'chaps': chaps,
+            'nChart': sum(len(c['charts']) for c in chaps)}
+
+
 def build_desk():
     """断命台：把 content/断命台.md 解析成逐步检查清单。
 
@@ -714,6 +833,7 @@ def main():
     index_md = read(os.path.join(SRC, '00-问题清单.md'))
     desk = build_desk()
     vke = attach_charts(quiz['items'], build_vke(quiz['items']))
+    kt = build_kt()
     outline = read(os.path.join(SRC, '实用八字教材', '00-教材总目录与学习路线.md'))
 
     meta = {
@@ -742,6 +862,8 @@ def main():
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
         # v课笔记原文（三卷 20 万字）同样按需加载
         ('data-vke.js', write_js('data-vke.js', 'DATA_VKE', vke)),
+        # 课堂笔记（中级班讲义 p44–251）—— 同样按需加载，只在 v课笔记里点进去才要
+        ('data-kt.js', write_js('data-kt.js', 'DATA_KT', kt)),
     ]
 
     print('== 构建完成 ==')
