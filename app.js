@@ -723,7 +723,7 @@ RENDER.desk = function () {
         (st.ask ? '<div class="dask">' + st.ask + '</div>' : '') +
         '<ul>' + lis + '</ul>' +
         (st.link ? '<div style="padding:0 13px 12px"><a class="wiki" data-wiki="' +
-          esc(st.link) + '">📖 回 ' + esc(st.link.replace(/^\d+-/, '')) + '</a></div>' : '') +
+          esc(st.link) + '">📖 回 ' + esc(st.link.replace(/^\d+-/, '').replace(/#([^、]*)、?.*$/, ' · $1').replace(/[⭐⚠️]/g, '')) + '</a></div>' : '') +
         '</div>';
     }).join('');
 
