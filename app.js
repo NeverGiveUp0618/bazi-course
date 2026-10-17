@@ -477,6 +477,17 @@ RENDER.chapter = function (n) {
           catch (e) { el.scrollIntoView(); }
       };
     });
+    // 看完一章去八字日练刷这一章的教材知识点（日练读 ?ch=N 直接开练）
+    var g = $('#chGame');
+    if (g) {
+      if (n >= 1 && n <= 16) {
+        g.href = 'https://nevergiveup0618.github.io/bazi-game/?ch=' + n;
+        g.innerHTML = '<div class="row spread"><div><b style="font-size:15px">🎯 去八字日练练这一章</b>' +
+          '<div class="muted" style="margin-top:3px">只出第' + n + '章的教材知识点，答错的本组最后再出一遍</div></div>' +
+          '<span style="color:var(--ink3)">›</span></div>';
+        g.style.display = 'block';
+      } else g.style.display = 'none';
+    }
     $('#prevCh').disabled = n <= 1;
     $('#nextCh').disabled = n >= list.length;
     $('#prevCh').onclick = function () { show('chapter', n - 1); };
