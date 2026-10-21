@@ -800,6 +800,9 @@ def build_kt():
             'nChart': sum(len(c['charts']) for c in chaps)}
 
 
+DESK_SECS = ['做法', '特殊情况', '注意点']
+
+
 def build_desk():
     """断命台：把 content/断命台.md 解析成逐步检查清单。
 
@@ -809,6 +812,9 @@ def build_desk():
         - 条目               → 普通检查项
         !! 条目              → ⭐ 红线（漏了结论就全错），前端标红
         @ 目标               → 这一步回哪一章（wiki 名）
+        ### 做法 / 特殊情况 / 注意点 → 把这一步的条目分进三栏（2026-10-21 用户要求：
+                               每步不止顺序，还要有该步的特例与易错点）
+        ?? 说明              → 该栏资料里没讲到的空缺说明（不可勾、不计数）
     """
     src = read(os.path.join(SRC, '断命台.md'))
     steps, cur = [], None
@@ -816,17 +822,24 @@ def build_desk():
         line = raw.rstrip()
         m = re.match(r'^##\s+(\S+)\s*·\s*(.+)$', line)
         if m:
-            cur = {'n': m.group(1), 'title': m.group(2).strip(), 'ask': '', 'items': [], 'link': ''}
+            cur = {'n': m.group(1), 'title': m.group(2).strip(), 'ask': '', 'items': [], 'link': '', 'gaps': []}
             steps.append(cur)
+            sec = 0
+            continue
+        ms = re.match(r'^###\s+(做法|特殊情况|注意点)\s*$', line)
+        if ms and cur is not None:
+            sec = DESK_SECS.index(ms.group(1))
             continue
         if cur is None or not line.strip():
             continue
         if line.startswith('@ '):
             cur['link'] = line[2:].strip()
         elif line.startswith('!! '):
-            cur['items'].append({'t': _inline(line[3:].strip()), 'red': 1})
+            cur['items'].append({'t': _inline(line[3:].strip()), 'red': 1, 's': sec})
         elif line.startswith('- '):
-            cur['items'].append({'t': _inline(line[2:].strip()), 'red': 0})
+            cur['items'].append({'t': _inline(line[2:].strip()), 'red': 0, 's': sec})
+        elif line.startswith('?? '):
+            cur['gaps'].append({'t': _inline(line[3:].strip()), 's': sec})
         elif not cur['ask']:
             cur['ask'] = _inline(line.strip())
     # 顶部说明（第一个 ## 之前的引用块）

@@ -702,6 +702,8 @@ function deskWarn(missRed) {
     }).join('<br>') + '</div>';
 }
 
+var DESK_SECS = ['做法', '特殊情况', '注意点'];
+
 RENDER.desk = function () {
   var box = $('#deskBody');
   box.innerHTML = '<div class="empty">载入中…</div>';
@@ -720,19 +722,27 @@ RENDER.desk = function () {
 
     var body = d.steps.map(function (st, si) {
       var n = st.items.length, k = 0;
-      var lis = st.items.map(function (it, ii) {
-        var on = !!done[si + '-' + ii];
-        if (on) k++;
-        return '<li class="' + (it.red ? 'red' : '') + '" data-k="' + si + '-' + ii + '">' +
-          '<span class="dbox' + (on ? ' on' : '') + '"></span>' +
-          '<span class="dtxt">' + (it.red ? '⚠️ ' : '') + it.t + '</span></li>';
+      // 每步分三栏：做法／特殊情况／注意点。key 仍按条目在本步的序号，勾选存档不受分栏影响
+      var lis = DESK_SECS.map(function (nm, sx) {
+        var rows = st.items.map(function (it, ii) {
+          if ((it.s || 0) !== sx) return '';
+          var on = !!done[si + '-' + ii];
+          if (on) k++;
+          return '<li class="' + (it.red ? 'red' : '') + '" data-k="' + si + '-' + ii + '">' +
+            '<span class="dbox' + (on ? ' on' : '') + '"></span>' +
+            '<span class="dtxt">' + (it.red ? '⚠️ ' : '') + it.t + '</span></li>';
+        }).join('');
+        var gaps = (st.gaps || []).filter(function (g) { return (g.s || 0) === sx; })
+          .map(function (g) { return '<div class="dgap">' + g.t + '</div>'; }).join('');
+        if (!rows && !gaps) return '';
+        return '<div class="dsec s' + sx + '">' + nm + '</div>' + (rows ? '<ul>' + rows + '</ul>' : '') + gaps;
       }).join('');
       return '<div class="dstep' + (k === n ? ' done' : '') + '">' +
         '<div class="dhd"><span class="dno">' + esc(st.n) + '</span>' +
         '<span class="dti">' + esc(st.title) + '</span>' +
         '<span class="dct">' + k + '/' + n + '</span></div>' +
         (st.ask ? '<div class="dask">' + st.ask + '</div>' : '') +
-        '<ul>' + lis + '</ul>' +
+        lis +
         (st.link ? '<div style="padding:0 13px 12px"><a class="wiki" data-wiki="' +
           esc(st.link) + '">📖 回 ' + esc(st.link.replace(/^\d+-/, '').replace(/#([^、]*)、?.*$/, ' · $1').replace(/[⭐⚠️]/g, '')) + '</a></div>' : '') +
         '</div>';

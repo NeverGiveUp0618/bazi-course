@@ -650,6 +650,11 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const reds = D.querySelectorAll('#deskBody li.red');
   ok(reds.length >= 8, '红线条目标出来了，共 ' + reds.length + ' 条');
   ok($('#deskBody .dwarn').textContent.includes('红线没过'), '未勾完时底部点名还差哪几条红线');
+  // 2026-10-21：每步分「做法／特殊情况／注意点」三栏
+  ok([...steps].every(s => s.querySelector('.dsec.s0')), '每一步都有「做法」栏');
+  ok([...steps].filter(s => s.querySelector('.dsec.s1')).length === steps.length, '每一步都有「特殊情况」栏');
+  ok([...steps].filter(s => s.querySelector('.dsec.s2')).length === steps.length, '每一步都有「注意点」栏');
+  ok(!D.querySelector('#deskBody .dsec[data-k]'), '栏目标题不可勾选');
   // 勾一条：状态要落盘，重渲染后仍在
   const firstLi = D.querySelector('#deskBody .dstep li');
   const gotBefore = Number($('#deskGot').textContent);
