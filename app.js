@@ -245,6 +245,9 @@ function findHeadRaw(roots, kw) {
   //    「」也变成了 <q>。data-raw 存的却是一字未动的原标题，
   //    所以两边都归一掉再比，否则点了跳不过去（笔记那边真坏过）。
   var norm = function (x) { return x.replace(/\*\*/g, '').replace(/[「」『』【】]/g, ''); };
+  /* 「八·F」「3.2·B」这类只给节号的锚点（八字日练的出处链接 2026-10-22）：
+     精确找不到时，按「节号＋、或空格」开头去认标题。 */
+  var byNo = function (raw, w) { return raw.indexOf(w + '、') === 0 || raw.indexOf(w + ' ') === 0; };
   var want = String(kw).trim();
   var bare = norm(want);
   if (!want) return false;
@@ -256,6 +259,17 @@ function findHeadRaw(roots, kw) {
         hs[k].classList.add('sr-blk');
         try { hs[k].scrollIntoView({ block: 'start' }); }
         catch (e) { try { window.scrollTo(0, hs[k].offsetTop - 120); } catch (e2) {} }
+        return true;
+      }
+    }
+  }
+  for (var i2 = 0; i2 < roots.length; i2++) {
+    var hs2 = roots[i2].querySelectorAll ? roots[i2].querySelectorAll('[data-raw]') : [];
+    for (var k2 = 0; k2 < hs2.length; k2++) {
+      var r2 = norm(hs2[k2].getAttribute('data-raw').replace(/^#+\s*/, '').trim());
+      if (byNo(r2, bare)) {
+        hs2[k2].classList.add('sr-blk');
+        try { hs2[k2].scrollIntoView({ block: 'start' }); } catch (e) {}
         return true;
       }
     }
@@ -1779,6 +1793,12 @@ history.replaceState({ i: 0 }, '', '');
 stack = [{ scr: 'home', id: null }];
 pos = 0;
 _apply('home', null);
+
+/* 外部深链：?go=07-#八·F（八字日练的出处链接用），进来直接打开那一节 */
+try {
+  var _go = new URLSearchParams(location.search).get('go');
+  if (_go) setTimeout(function () { gotoWiki(_go); }, 0);
+} catch (e) {}
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function () {
