@@ -11,6 +11,7 @@ const dom = new JSDOM(fs.readFileSync(path.join(dir, 'index.html'), 'utf8'), {
   runScripts: 'outside-only', pretendToBeVisual: true, url: 'https://x.test/bazi-course/'
 });
 const { window } = dom;
+window.__READ_DELAY_MS = 80; // 测试专用；线上默认 5 分钟
 // 记下滚动调用——恢复阅读位置、搜索定位都靠它，不记就没法验真假
 let scrolls = [];
 window.scrollTo = (x, y) => { scrolls.push(typeof x === 'object' ? x.top : y); };
@@ -289,6 +290,8 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   const r21 = Array.from(rows21).find(r => r.dataset.q === '21');
   r21.click(); await wait();
   ok($('#s-quiz').classList.contains('active'), '进入题21');
+  ok(!JSON.parse(window.localStorage.getItem('bazi_course_seen') || '{}')['21'],
+     '误触进入命例不会立刻标记看过');
   ok(D.querySelectorAll('#quizBody .chart').length === 0, '多盘题：题头不放大盘');
   ok(D.querySelectorAll('#quizBody .ichart').length === 2,
      '多盘题：命A命B 两个盘都留在正文（已转成紧凑盘）');
@@ -318,7 +321,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(!window.localStorage.getItem('bazi_course_srs'), '不写 SRS');
   ok(!window.localStorage.getItem('bazi_course_tag_stats'), '不写考点正确率');
   const seen = JSON.parse(window.localStorage.getItem('bazi_course_seen') || '{}');
-  ok(!!seen['21'], '看过答案后记下题号 21');
+  ok(!!seen['21'], '同一命例停留达到门槛后才记下题号 21（线上门槛为 5 分钟）');
   ok(!!$('#qnav') && !!$('#bPrev') && !!$('#bNext'), '上一题/下一题导航出现');
   $('#bNext').click(); await wait();
   {

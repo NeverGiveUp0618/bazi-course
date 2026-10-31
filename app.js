@@ -39,6 +39,19 @@ var K = {
   // ⚠️ 只存一盘——断命台是「手边的工具」不是「档案」，换盘就清空重来
   desk: 'bazi_course_desk'
 };
+
+/* 命例停留满 5 分钟才记为看过；误触进入、立刻返回和快速翻题不打点。 */
+var seenTimer = null;
+function markSeenLater(n) {
+  clearTimeout(seenTimer);
+  var delay = Number(window.__READ_DELAY_MS) || 5 * 60 * 1000;
+  seenTimer = setTimeout(function () {
+    seenTimer = null;
+    if (cur.scr !== 'quiz' || String(cur.id) !== String(n) || document.hidden) return;
+    var s = ls(K.seen, {});
+    if (!s[n]) { s[n] = Date.now(); save(K.seen, s); }
+  }, delay);
+}
 function ls(k, d) {
   try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }
   catch (e) { return d; }
@@ -1302,6 +1315,7 @@ RENDER.qlist = function () {
 };
 
 RENDER.quiz = function (n) {
+  markSeenLater(n);
   needQuiz().then(function (Q) {
     var it = Q.items.filter(function (x) { return x.n === n; })[0];
     if (!it) return;
@@ -1347,7 +1361,6 @@ RENDER.quiz = function (n) {
           '🔍 还是不懂 · 看拆解</button>';
         $('#bChai').onclick = openChai;
       }
-      markSeen(it.n);
     }
     $('#bJie').onclick = openJie;
 
@@ -1398,14 +1411,6 @@ function setupSticky(it) {
       }).join('') + '</div></div>';
   }).join('');
 
-}
-
-/* 看过就记一笔，仅用于列表上的圆点与「没看过」筛选。不打分、不排复习。 */
-function markSeen(n) {
-  var s = ls(K.seen, {});
-  if (s[n]) return;
-  s[n] = Date.now();
-  save(K.seen, s);
 }
 
 function navBar(it) {
