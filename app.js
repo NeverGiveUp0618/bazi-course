@@ -18,11 +18,20 @@ var META = window.DATA_META || {};
   var card = $('.entry-gate-card', gate), opts = $('#entryGateOptions'), msg = $('#entryGateMsg');
   var progress = $('#entryGateProgress'), at = 0, locked = false;
   document.body.classList.add('entry-locked');
+  function reshuffleOptions() {
+    var before = $$('.entry-gate-option', gate), old = before.map(function (x) { return x.textContent; }).join('|');
+    var next = before.slice(), tries = 0, i, j, t;
+    do {
+      for (i = next.length - 1; i > 0; i--) { j = Math.floor(Math.random() * (i + 1)); t = next[i]; next[i] = next[j]; next[j] = t; }
+    } while (next.map(function (x) { return x.textContent; }).join('|') === old && ++tries < 8);
+    if (next.length > 1 && next.map(function (x) { return x.textContent; }).join('|') === old) { t = next[0]; next[0] = next[1]; next[1] = t; }
+    next.forEach(function (x) { opts.appendChild(x); });
+  }
   order.forEach(function (_, i) {
     var s = document.createElement('i'); s.className = 'entry-gate-step';
     s.setAttribute('aria-label', '第' + (i + 1) + '步'); progress.appendChild(s);
   });
-  order.slice().sort(function () { return Math.random() - .5; }).forEach(function (name) {
+  order.forEach(function (name) {
     var b = document.createElement('button'); b.type = 'button'; b.className = 'entry-gate-option'; b.textContent = name;
     b.onclick = function () {
       if (locked || b.disabled) return;
@@ -32,7 +41,7 @@ var META = window.DATA_META || {};
           at = 0; locked = false; card.classList.remove('wrong');
           $$('.entry-gate-step', gate).forEach(function (x) { x.classList.remove('on'); });
           $$('.entry-gate-option', gate).forEach(function (x) { x.disabled = false; x.classList.remove('picked'); });
-          msg.textContent = '现在请选择第 1 步';
+          reshuffleOptions(); msg.textContent = '已重新打乱，现在请选择第 1 步';
         }, 650);
         return;
       }
@@ -45,6 +54,7 @@ var META = window.DATA_META || {};
     };
     opts.appendChild(b);
   });
+  reshuffleOptions();
 })();
 
 /* ============================ 存储 ============================
