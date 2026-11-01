@@ -10,6 +10,43 @@ var $ = function (s, r) { return (r || document).querySelector(s); };
 var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 var META = window.DATA_META || {};
 
+/* 论命八步法入站自检：只保存在本次页面内，刷新后必须重新作答。 */
+(function initEntryGate() {
+  var order = ['天元入命', '确定状态', '确定喜忌', '干支意向', '十神格局', '作用方式', '宫位大限', '大运流年'];
+  var gate = $('#entryGate');
+  if (!gate) return;
+  var card = $('.entry-gate-card', gate), opts = $('#entryGateOptions'), msg = $('#entryGateMsg');
+  var progress = $('#entryGateProgress'), at = 0, locked = false;
+  document.body.classList.add('entry-locked');
+  order.forEach(function (_, i) {
+    var s = document.createElement('i'); s.className = 'entry-gate-step';
+    s.setAttribute('aria-label', '第' + (i + 1) + '步'); progress.appendChild(s);
+  });
+  order.slice().sort(function () { return Math.random() - .5; }).forEach(function (name) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'entry-gate-option'; b.textContent = name;
+    b.onclick = function () {
+      if (locked || b.disabled) return;
+      if (name !== order[at]) {
+        locked = true; card.classList.add('wrong'); msg.textContent = '顺序不对，重新从第 1 步开始';
+        setTimeout(function () {
+          at = 0; locked = false; card.classList.remove('wrong');
+          $$('.entry-gate-step', gate).forEach(function (x) { x.classList.remove('on'); });
+          $$('.entry-gate-option', gate).forEach(function (x) { x.disabled = false; x.classList.remove('picked'); });
+          msg.textContent = '现在请选择第 1 步';
+        }, 650);
+        return;
+      }
+      b.disabled = true; b.classList.add('picked');
+      $$('.entry-gate-step', gate)[at].classList.add('on'); at += 1;
+      if (at === order.length) {
+        locked = true; msg.textContent = '顺序正确，进入命理精讲'; gate.classList.add('done');
+        setTimeout(function () { gate.hidden = true; document.body.classList.remove('entry-locked'); }, 300);
+      } else msg.textContent = '正确，请选择第 ' + (at + 1) + ' 步';
+    };
+    opts.appendChild(b);
+  });
+})();
+
 /* ============================ 存储 ============================
  * ⚠️ 这些键会被五术堂导航首页的学习看板读取，改名要同步改看板。
  *   bazi_course_read  {文档id: 阅读百分比 0-100}   c1..c16 教材 / n1..n14 笔记
