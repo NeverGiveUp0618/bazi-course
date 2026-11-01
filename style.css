@@ -316,6 +316,22 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .doc details>summary::before{content:"▸ ";transition:.2s;display:inline-block}
 .doc details[open]>summary::before{transform:rotate(90deg)}
 
+/* 教材一级标题折叠：内层的原文、提示卡、自测答案仍保持各自样式。 */
+.doc details.chapter-sec{margin:12px 0;padding:0;border:1px solid var(--line);
+  border-radius:11px;background:var(--card);overflow:clip}
+.doc details.chapter-sec[open]{padding-bottom:0}
+.doc details.chapter-sec>summary{display:flex;align-items:center;gap:8px;padding:0 13px;
+  list-style:none;background:var(--card)}
+.doc details.chapter-sec>summary::before{content:none;display:none}
+.doc details.chapter-sec>summary::after{content:"＋";flex:0 0 auto;color:var(--indigo);
+  font-size:19px;font-weight:400;line-height:1}
+.doc details.chapter-sec[open]>summary{border-bottom:1px solid var(--line);background:var(--bg2)}
+.doc details.chapter-sec[open]>summary::after{content:"－"}
+.doc details.chapter-sec>summary h2{flex:1;min-width:0;margin:0;padding:14px 0 14px 10px;
+  border-left:4px solid var(--indigo);font-size:18px}
+.chapter-sec-body{padding:1px 14px 14px}
+.chapter-sec-body>:first-child{margin-top:14px}
+
 /* ---------- 四柱盘 ---------- */
 .chart{
   display:grid;grid-template-columns:repeat(4,1fr);gap:6px;

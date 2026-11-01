@@ -107,6 +107,14 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok(D.querySelectorAll('#chapterBody .tip').length > 0,
        '段首 ⚠️／⭐ 的段落包成提示框，共 ' + D.querySelectorAll('#chapterBody .tip').length + ' 个');
     ok(D.querySelectorAll('#chapterBody .cmap').length === 1, '章首有「本章地图」');
+    const chapterFolds = [...D.querySelectorAll('#chapterBody details.chapter-sec')];
+    ok(chapterFolds.length === D.querySelectorAll('#chapterBody h2.mh').length,
+       '教材按一级标题折叠，每个 h2 对应一个大章节');
+    ok(chapterFolds.every(d => !d.open), '首次进入时一级章节默认全部收起');
+    chapterFolds[0].querySelector('summary').click();
+    ok(chapterFolds[0].open, '点一级标题可展开课程内容');
+    chapterFolds[0].querySelector('summary').click();
+    ok(!chapterFolds[0].open, '再点一次收起');
     // 自测的答案必须默认收起，否则一眼看到答案，自测白做
     {
       const ans = D.querySelectorAll('#chapterBody details.ans');
@@ -396,6 +404,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     ok($('#s-chapter').classList.contains('active'), '跳进教材章节');
     const marks = D.querySelectorAll('#chapterBody mark.sr-kw, #chapterBody .sr-blk');
     ok(marks.length > 0, '章节正文里命中处已高亮');
+    ok(!!marks[0].closest('details.chapter-sec[open]'), '搜索跳转会自动展开命中所在的一级章节');
     ok(/巳申合/.test(marks[0].textContent) || marks[0].classList.contains('sr-blk'),
        '高亮的正是关键词（跨标签时退化为整段）');
   }

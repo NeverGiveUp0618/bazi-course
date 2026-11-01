@@ -26,6 +26,8 @@ var K = {
   seen: 'bazi_course_seen',
   last: 'bazi_course_last',
   pos:  'bazi_course_pos',
+  // 教材每章已展开的一级标题，返回长文时仍保留学习现场
+  fold: 'bazi_course_fold',
   // 题库里哪些主题是展开的（按主题名存），默认全折叠
   qopen: 'bazi_course_qopen',
   // 内容总量，写给五术堂导航看板当分母用——内容会一直加，
@@ -270,6 +272,7 @@ function findHeadRaw(roots, kw) {
       var raw = hs[k].getAttribute('data-raw').trim();
       if (raw === want || norm(raw) === bare) {
         hs[k].classList.add('sr-blk');
+        openChapterFold(hs[k]);
         try { hs[k].scrollIntoView({ block: 'start' }); }
         catch (e) { try { window.scrollTo(0, hs[k].offsetTop - 120); } catch (e2) {} }
         return true;
@@ -282,6 +285,7 @@ function findHeadRaw(roots, kw) {
       var r2 = norm(hs2[k2].getAttribute('data-raw').replace(/^#+\s*/, '').trim());
       if (byNo(r2, bare)) {
         hs2[k2].classList.add('sr-blk');
+        openChapterFold(hs2[k2]);
         try { hs2[k2].scrollIntoView({ block: 'start' }); } catch (e) {}
         return true;
       }
@@ -340,6 +344,10 @@ function findInDoc(roots, kw, occ) {
     if (blk && blk.classList) { blk.classList.add('sr-blk'); target = blk; }
   }
   if (!target) return false;
+
+  // 教材正文按一级标题折叠后，搜索命中可能在收起的章节里。
+  // 先展开再滚动，否则浏览器会定位到隐藏内容而读者什么也看不到。
+  openChapterFold(target);
 
   // jsdom 没实现 scrollIntoView，别让它把整条渲染带崩
   try { target.scrollIntoView({ block: 'center' }); } catch (e2) {
@@ -495,12 +503,13 @@ RENDER.chapter = function (n) {
     curDoc = c;
     $('#ttl').textContent = '第' + c.n + '章 · ' + c.title;
     $('#chapterBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + chapterMap(c) + c.html;
+    foldChapterSections($('#chapterBody'), c.id);
     bindDoc($('#chapterBody'));
     $$('[data-mapa]', $('#chapterBody')).forEach(function (b) {
       b.onclick = function () {
         var el = document.getElementById(b.dataset.mapa);
         // scroll-margin-top 已经给标题留了吸顶条的高度，这里直接滚到它
-        if (el) try { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        if (el) try { openChapterFold(el); el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
           catch (e) { el.scrollIntoView(); }
       };
     });
@@ -523,6 +532,39 @@ RENDER.chapter = function (n) {
     afterDoc($('#chapterBody'), c.id);
   });
 };
+
+/* 教材正文按一级标题（h2）折叠。与六壬课程的阅读方式一致：
+   进章节先看本章地图和大标题，需要哪节再展开，避免整章数千字一次铺开。 */
+function foldChapterSections(root, chapterId) {
+  var hs = [].slice.call(root.children).filter(function (el) { return el.tagName === 'H2'; });
+  var saved = ls(K.fold, {}), opened = saved[chapterId] || [];
+  hs.forEach(function (h) {
+    var details = document.createElement('details');
+    details.className = 'chapter-sec';
+    details.dataset.foldId = h.id || '';
+    details.open = opened.indexOf(details.dataset.foldId) >= 0;
+    var summary = document.createElement('summary');
+    var content = document.createElement('div');
+    content.className = 'chapter-sec-body';
+    root.insertBefore(details, h);
+    details.appendChild(summary);
+    summary.appendChild(h);
+    details.appendChild(content);
+    while (details.nextSibling && details.nextSibling.tagName !== 'H2') {
+      content.appendChild(details.nextSibling);
+    }
+    details.ontoggle = function () {
+      var all = ls(K.fold, {});
+      all[chapterId] = $$('details.chapter-sec[open]', root).map(function (d) { return d.dataset.foldId; });
+      save(K.fold, all);
+    };
+  });
+}
+function openChapterFold(el) {
+  var d = el && el.nodeType === 1 ? el.closest('details.chapter-sec') :
+          el && el.parentElement ? el.parentElement.closest('details.chapter-sec') : null;
+  if (d) d.open = true;
+}
 
 /* ---------- 笔记 ---------- */
 RENDER.notes = function () {
