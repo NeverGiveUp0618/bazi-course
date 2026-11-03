@@ -1357,7 +1357,7 @@ function renderMindmap(box, mm) {
   function apply() { if (svg._g) svg._g.setAttribute('transform', 'translate(' + T.x + ',' + T.y + ') scale(' + T.k + ')'); }
   function fit() {
     var W = view.clientWidth || 340, H = view.clientHeight || 460, bb = svg._bb;
-    var k = Math.min(1, (W - 16) / (bb.fitW || bb.w), (H - 16) / bb.h);   // 默认只摆到「要点」列之前，宽度按前三列估
+    var k = Math.min(W > 900 ? 1.7 : 1, (W - 16) / (bb.fitW || bb.w), (H - 16) / bb.h);   // 宽屏允许放大，别缩在左上角留大片空白   // 默认只摆到「要点」列之前，宽度按前三列估
     T.k = Math.max(0.35, k); T.x = 8; T.y = 8; apply();
   }
   var moved = false, pts = {}, last = null;
