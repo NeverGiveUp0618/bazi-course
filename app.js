@@ -135,6 +135,7 @@ var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
 var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 // 断命台 8KB，只有点进「断命台」才要
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
+var needReview = function () { return need('data-review.js', 'DATA_REVIEW'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
 // 课堂笔记（中级班讲义 p44–251，用户拍照逐页转录）400KB，挂在 v课笔记 列表最下面，点进去才要
@@ -152,7 +153,7 @@ var cur = { scr: 'home', id: null };
 
 var TITLES = {
   home: '命理精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
-  note: '', index: '问题清单', outline: '学习路线', qlist: '命例题库',
+  note: '', index: '问题清单', outline: '学习路线', review: '复习卡', qlist: '命例题库',
   quiz: '', search: '搜索', mynotes: '我的笔记', desk: '断命台',
   vke: 'v课笔记', vkeread: ''
 };
@@ -1226,6 +1227,52 @@ function vkeStartSpy() {
 }
 function vkeStopSpy() {
   if (vkeSpy) { window.removeEventListener('scroll', vkeSpy); vkeSpy = null; }
+}
+
+
+/* 复习卡：刷完课程后快速过要点。默认「速览」＝每章的问和一句话结论全显示，点开看自测 5 题；
+   「自测」＝先遮住答案。内容全由 build.py 从教材 md 自动抽取。 */
+var RV_TEST = false;
+RENDER.review = function () {
+  var box = $('#reviewBody');
+  box.innerHTML = '<div class="empty">载入中…</div>';
+  needReview().then(function (all) { paintReview(box, all || []); });
+};
+function paintReview(box, all) {
+  var html = '<div class="rv-bar"><button id="rvMode">' + (RV_TEST ? '改为速览' : '改为自测') + '</button>' +
+    '<span>' + (RV_TEST ? '先答「问」，再点开看答案' : '速览：问与结论全显示，点开做自测题') + '</span>' +
+    '<button id="rvAll">全部展开</button></div>' +
+    '<div class="sbox"><input id="rvq" type="search" placeholder="搜复习卡，如：虚实 制 应期 十神" autocomplete="off"></div><div id="rvList"></div>';
+  box.innerHTML = html;
+  function list() {
+    var kw = $('#rvq').value.trim(), words = kw.split(/\s+/).filter(Boolean), out = '';
+    all.forEach(function (r) {
+      if (!words.every(function (w) { return r.text.indexOf(w) >= 0; })) return;
+      out += '<div class="rv-card"><button class="rv-h"><b>' + esc(r.title) + '</b></button>' +
+        '<div class="rv-q"><i>问</i><div>' + r.q + '</div></div>' +
+        (r.concl ? '<div class="rv-a' + (RV_TEST ? ' hid' : '') + '"><i>答</i><div>' + r.concl + '</div></div>' : '') +
+        '<div class="rv-b">' + r.qa.map(function (x, k) {
+          return '<div class="rv-qa"><div class="rv-qq"><span>' + (k + 1) + '</span><div>' + x.q + '</div></div><div class="rv-qs doc">' + x.a + '</div></div>';
+        }).join('') + (r.extra ? '<details class="rv-ex"><summary>全书一页纸</summary><div class="doc">' + r.extra + '</div></details>' : '') +
+        '<button class="rv-go" data-n="' + r.n + '">到第 ' + r.n + ' 章看全文 ›</button></div></div>';
+    });
+    $('#rvList').innerHTML = out || '<p class="muted">没找到。换个词试试。</p>';
+    $$('.rv-card', $('#rvList')).forEach(function (c) {
+      c.querySelector('.rv-h').onclick = function () { c.classList.toggle('open'); };
+      c.querySelector('.rv-q').onclick = function () { c.classList.toggle('open'); };
+      $$('.rv-qq', c).forEach(function (qq) { qq.onclick = function () { qq.parentNode.classList.toggle('open'); }; });
+      c.querySelector('.rv-go').onclick = function () { show('chapter', +this.dataset.n); };
+    });
+    $$('.doc', $('#rvList')).forEach(function (d) { try { bindDoc(d); } catch (e) {} });
+  }
+  $('#rvq').oninput = function () { list(); };
+  $('#rvMode').onclick = function () { RV_TEST = !RV_TEST; paintReview(box, all); };
+  $('#rvAll').onclick = function () {
+    var open = this.textContent === '全部展开';
+    $$('.rv-card', box).forEach(function (c) { c.classList.toggle('open', open); $$('.rv-qa', c).forEach(function (x) { x.classList.toggle('open', open); }); });
+    this.textContent = open ? '全部收起' : '全部展开';
+  };
+  list();
 }
 
 RENDER.outline = function () {

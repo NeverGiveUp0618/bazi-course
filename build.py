@@ -24,6 +24,57 @@ def read(p):
         return f.read()
 
 
+def build_review():
+    """复习卡：教材 16 章，每章 = 本章解决什么（问）＋本章的一句话（答）＋自测 5 题的问与答。
+    全部从教材 md 自动抽，不另写第二份；改教材重跑 build 即同步。"""
+    d = os.path.join(SRC, '实用八字教材')
+    items = []
+    for fn_ in sorted(os.listdir(d)):
+        m = re.match(r'^(\d\d)-.+\.md$', fn_)
+        if not m or not (1 <= int(m.group(1)) <= 16):
+            continue
+        md = read(os.path.join(d, fn_))
+        t = re.search(r'^# (.+)$', md, re.M)
+        title = re.sub(r'\s*⭐+\s*$', '', t.group(1).strip()) if t else fn_
+        q = re.search(r'^> \*\*本章解决什么\*\*[：:]\s*(.+)$', md, re.M)
+        one = re.search(r'\*\*本章的一句话\*\*[：:]\s*\*\*(.+?)\*\*', md)
+        # 自测：题目在「自测」节，答案在其后的「答案」小节
+        qa = []
+        st = re.search(r'^## .*自测.*$', md, re.M)
+        if st:
+            body = md[st.end():]
+            ai = re.search(r'^#+ .*答案.*$', body, re.M)
+            qpart, apart = (body[:ai.start()], body[ai.end():]) if ai else (body, '')
+            qs = re.findall(r'^\*\*第(\d+)题[^*]*\*\*[｜|]\s*(.+)$', qpart, re.M)
+            ans = {}
+            for am in re.finditer(r'^\*\*第(\d+)题[^*]*\*\*[：:]\s*', apart, re.M):
+                ans[am.group(1)] = am.end()
+            keys = sorted(ans, key=lambda k: ans[k])
+            for i, k in enumerate(keys):
+                end = len(apart)
+                nxt = re.search(r'^\*\*第\d+题[^*]*\*\*[：:]|^---\s*$|^## ', apart[ans[k]:], re.M)
+                if nxt:
+                    end = ans[k] + nxt.start()
+                ans[k] = apart[ans[k]:end].strip()
+            for num, qt in qs:
+                if num in ans and ans[num]:
+                    qa.append({'q': md2html(qt.strip()), 'a': md2html(ans[num])})
+        extra = ''
+        ex = re.search(r'^## .*一页纸.*$', md, re.M)
+        if ex:
+            rest = md[ex.end():]
+            nx = re.search(r'^## ', rest, re.M)
+            extra = md2html(rest[:nx.start()] if nx else rest)
+        items.append({
+            'n': int(m.group(1)), 'title': title,
+            'q': md2html(q.group(1)) if q else '', 'concl': md2html(one.group(1)) if one else '',
+            'qa': qa, 'extra': extra,
+            'text': strip_md('\n'.join([q.group(1) if q else '', one.group(1) if one else '', title] +
+                                       [strip_md(x['q']) + ' ' + strip_md(x['a']) for x in qa])),
+        })
+    return items
+
+
 def write_js(name, varname, obj):
     os.makedirs(OUT, exist_ok=True)
     p = os.path.join(OUT, name)
@@ -884,6 +935,7 @@ def main():
         ('data-index.js', write_js('data-index.js', 'DATA_INDEX',
                                    md2html(index_md, heading_offset=0))),
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
+        ('data-review.js', write_js('data-review.js', 'DATA_REVIEW', build_review())),
         # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
         # v课笔记原文（三卷 20 万字）同样按需加载

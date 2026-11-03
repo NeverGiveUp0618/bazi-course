@@ -1002,3 +1002,27 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .doc .tw table{width:max-content;min-width:100%}
 .doc .tw td:not(.nw),.doc .tw th:not(.nw){min-width:8em;max-width:26em}
 .doc .tw td:first-child:not(.nw),.doc .tw th:first-child:not(.nw){min-width:5em}
+
+/* ===== 复习卡 ===== */
+.rv-bar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin:2px 0 10px;font-size:12.5px;color:var(--ink3)}
+.rv-bar button{border:1px solid var(--line);background:var(--bg2);color:var(--indigo);border-radius:14px;padding:4px 11px;font-size:12.5px;cursor:pointer}
+.rv-card{border:1px solid var(--line);border-radius:8px;margin:0 0 10px;background:var(--bg2);overflow:hidden}
+.rv-h{all:unset;box-sizing:border-box;display:block;width:100%;padding:10px 12px 4px;cursor:pointer;font-size:15px}
+.rv-q,.rv-a{display:flex;gap:8px;align-items:flex-start;padding:3px 12px 8px;font-size:14px;line-height:1.7}
+.rv-q>div,.rv-a>div{flex:1;min-width:0}
+.rv-q p,.rv-a p{margin:0}
+.rv-q i,.rv-a i{flex:0 0 auto;font-style:normal;font-size:12px;font-weight:700;border-radius:3px;padding:0 6px;line-height:20px;color:#0b0f12;background:var(--indigo)}
+.rv-a i{background:var(--gold)}
+.rv-a.hid{display:none}
+.rv-card.open .rv-a.hid{display:flex}
+.rv-b{display:none;border-top:1px dashed var(--line);padding:6px 12px 10px}
+.rv-card.open .rv-b{display:block}
+.rv-qa{margin:8px 0;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.rv-qq{display:flex;gap:8px;padding:8px 10px;cursor:pointer;font-size:13.5px;line-height:1.65}
+.rv-qq>span{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--indigo-soft);color:var(--indigo);font-size:12px;font-weight:700;text-align:center;line-height:20px}
+.rv-qq>div{flex:1;min-width:0}.rv-qq p{margin:0}
+.rv-qs{display:none;padding:2px 12px 10px 38px;font-size:13.5px;line-height:1.75;border-top:1px dotted var(--line)}
+.rv-qa.open .rv-qs{display:block}
+.rv-ex{margin:8px 0}.rv-ex>summary{cursor:pointer;font-size:13px;color:var(--indigo)}
+.rv-go{all:unset;cursor:pointer;display:block;margin-top:8px;font-size:13px;color:var(--indigo)}
+#rvq{width:100%;box-sizing:border-box;font-size:16px;padding:9px 12px;border:1px solid var(--line);border-radius:6px;background:var(--bg2);color:var(--ink);margin:0 0 10px}
