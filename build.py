@@ -24,6 +24,31 @@ def read(p):
         return f.read()
 
 
+def _mm_secs(files):
+    """从课文里自动取 h2→h3 小标题，做导图的更细层级（不手写，保证与课文一致）。"""
+    out = []
+    for f in files:
+        sec = None
+        for ln in read(f).splitlines():
+            m = re.match(r'^(#{2,3})\s+(.*?)\s*$', ln)
+            if not m:
+                continue
+            t = re.sub(r'[⭐⚠️✅❌\U0001F300-\U0001FAFF]', '', m.group(2))
+            t = re.sub(r'\s+', ' ', t)
+            t = re.sub(r'[（(]\s*20\d\d[^）)]*[）)]', '', t).replace('**', '').strip()
+            if len(t) > 24:
+                t = t[:23] + '…'
+            if m.group(1) == '##':
+                if re.search(r'自测|答案|课名由来|^附', t):
+                    sec = None
+                    continue
+                sec = {'t': t, 'sub': []}
+                out.append(sec)
+            elif sec is not None and len(sec['sub']) < 8 and t:
+                sec['sub'].append(t)
+    return out
+
+
 def build_mindmap():
     """总览导图：content/导图.json 是源（手写骨架），这里只校验章号并输出。"""
     fp = os.path.join(SRC, '导图.json')
@@ -34,6 +59,10 @@ def build_mindmap():
         for n in b['nodes']:
             if not (isinstance(n.get('go'), int) and 1 <= n['go'] <= 16):
                 sys.exit('✗ 导图里的章号不对：%s' % n)
+    import glob
+    for b in mm['branches']:
+        for n in b['nodes']:
+            n['sec'] = _mm_secs(sorted(glob.glob(os.path.join(SRC, '实用八字教材', '%02d-*.md' % n['go']))))
     return mm
 
 

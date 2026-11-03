@@ -1268,97 +1268,79 @@ function renderMindmap(box, mm) {
   function wrap(s, n) { var o = []; s = s.replace(/：/, '：\n').split('\n'); s.forEach(function (p) { for (var i = 0; i < p.length; i += n) o.push(p.slice(i, i + n)); }); return o; }
   function draw() {
     svg.innerHTML = '';
-    var g = el('g', {}), FS = 13, PAD = 12, ROW = 40, KH = 26;
-    var rootLines = wrap(mm.title, 9), rootW = 0;
-    rootLines.forEach(function (l) { rootW = Math.max(rootW, tw(l, 15)); });
-    rootW += 24;
-    var bw = 0, nw = 0, kw = 0;
-    mm.branches.forEach(function (b) {
-      bw = Math.max(bw, tw(b.t, 14) + 2 * PAD);
-      b.nodes.forEach(function (n) {
-        nw = Math.max(nw, tw(n.t, FS) + 2 * PAD);
-        n.kw.forEach(function (k) { kw = Math.max(kw, tw(k, 12) + 16); });
-        links(n).forEach(function (l) { kw = Math.max(kw, tw(l.t, 12) + 16); });
+    var g = el('g', {}), FS = 13, KH = 26, GAP = 40;
+    // 1) 建树：根→大块→节点→（要点 / 章节小标题→更细） ；open 控制展开
+    function build() {
+      var root = { t: mm.title, d: 0, ch: [], key: 'r' };
+      mm.branches.forEach(function (b, bi) {
+        var B = { t: b.t, sub: b.range, d: 1, c: bi % 5, key: 'b' + bi, ch: [], par: root }; root.ch.push(B);
+        b.nodes.forEach(function (n, ni) {
+          var key = bi + '-' + ni, N = { t: n.t, d: 2, c: bi % 5, key: key, ch: [], par: B, tog: true, on: !!open[key] };
+          B.ch.push(N);
+          if (!N.on) return;
+          n.kw.forEach(function (k) { N.ch.push({ t: k, d: 3, c: bi % 5, kind: 'kw', ch: [], par: N }); });
+          (n.sec || []).forEach(function (s, si) {
+            var sk = key + '/' + si, S = { t: s.t, d: 3, c: bi % 5, kind: 'sec', key: sk, ch: [], par: N, tog: !!(s.sub && s.sub.length), on: !!open[sk] };
+            N.ch.push(S);
+            if (S.on) s.sub.forEach(function (u) { S.ch.push({ t: u, d: 4, c: bi % 5, kind: 'kw', ch: [], par: S }); });
+          });
+          links(n).forEach(function (l) { N.ch.push({ t: l.t, d: 3, c: bi % 5, kind: 'go', v: l.v, ch: [], par: N }); });
+        });
       });
-    });
-    var GAP = 46, x0 = 0, x1 = x0 + rootW + GAP, x2 = x1 + bw + GAP, x3 = x2 + nw + GAP;
-    var y = 0, bys = [];
-    var layout = [];
-    mm.branches.forEach(function (b, bi) {
-      var ys = [];
-      b.nodes.forEach(function (n, ni) {
-        var key = bi + '-' + ni, items = n.kw.length + links(n).length;
-        var h = open[key] ? Math.max(ROW, items * KH + 10) : ROW;
-        ys.push(y + h / 2); layout.push({ b: bi, n: ni, key: key, y: y + h / 2, h: h });
-        y += h;
-      });
-      y += 14;
-      bys.push((ys[0] + ys[ys.length - 1]) / 2);
-    });
-    var ry = (bys[0] + bys[bys.length - 1]) / 2;
-    function curve(ax, ay, bx, by, c) {
-      var m = (ax + bx) / 2;
-      g.appendChild(el('path', { d: 'M' + ax + ',' + ay + 'C' + m + ',' + ay + ' ' + m + ',' + by + ' ' + bx + ',' + by, class: 'mm-ln', style: '--c:var(--mm' + c + ')' }));
+      return root;
     }
-    function box_(x, y_, w, h, c, cls) { return el('rect', { x: x, y: y_ - h / 2, width: w, height: h, rx: 8, class: cls, style: '--c:var(--mm' + c + ')' }); }
-    // 连线先画
-    mm.branches.forEach(function (b, bi) {
-      curve(x0 + rootW, ry, x1, bys[bi], bi % 5);
+    var root = build(), maxd = {};
+    var FSZ = [15, 14, 13, 12, 12];
+    (function walk(n) { n.w = tw(n.t, FSZ[n.d]) + (n.d === 0 ? 24 : n.d < 3 ? 24 : 18); maxd[n.d] = Math.max(maxd[n.d] || 0, n.w); n.ch.forEach(walk); })(root);
+    var xs = [0];
+    for (var d = 1; d <= 4; d++) xs[d] = xs[d - 1] + (maxd[d - 1] || 0) + GAP;
+    var y = 0;
+    (function place(n) {
+      if (!n.ch.length) { var h = n.d <= 2 ? 40 : KH; n.y = y + h / 2; y += h; if (n.d === 1) y += 0; return; }
+      n.ch.forEach(place);
+      n.y = (n.ch[0].y + n.ch[n.ch.length - 1].y) / 2;
+      if (n.d === 1) y += 14;
+    })(root);
+    var lines = [], nodes = [];
+    (function coll(n) { n.ch.forEach(function (c) { lines.push([n, c]); coll(c); }); nodes.push(n); })(root);
+    lines.forEach(function (p) {
+      var a = p[0], b = p[1], ax = xs[a.d] + maxd[a.d] * 0 + a.w, bx = xs[b.d], m = (ax + bx) / 2, c = b.c == null ? 0 : b.c;
+      g.appendChild(el('path', { d: 'M' + ax + ',' + a.y + 'C' + m + ',' + a.y + ' ' + m + ',' + b.y + ' ' + bx + ',' + b.y, class: 'mm-ln', style: '--c:var(--mm' + c + ')' }));
     });
-    layout.forEach(function (L) {
-      var bi = L.b, c = bi % 5, n = mm.branches[bi].nodes[L.n];
-      curve(x1 + bw, bys[bi], x2, L.y, c);
-      if (open[L.key]) {
-        var items = n.kw.length + links(n).length, top = L.y - (items * KH) / 2 + KH / 2;
-        for (var i = 0; i < items; i++) curve(x2 + nw, L.y, x3, top + i * KH, c);
+    nodes.forEach(function (n) {
+      var x = xs[n.d], c = n.c == null ? 0 : n.c, st = '--c:var(--mm' + c + ')', gg = el('g', {});
+      if (n.d === 0) {
+        var ls = wrap(n.t, 9), rh = ls.length * 20 + 16, rw = 0; ls.forEach(function (l) { rw = Math.max(rw, tw(l, 15)); });
+        n.w = rw + 24;
+        gg.appendChild(el('rect', { x: x, y: n.y - rh / 2, width: n.w, height: rh, rx: 8, class: 'mm-rt' }));
+        ls.forEach(function (l, i) { gg.appendChild(el('text', { x: x + n.w / 2, y: n.y - rh / 2 + 23 + i * 20, 'text-anchor': 'middle', class: 'mm-t0' }, l)); });
+      } else if (n.d === 1) {
+        gg.appendChild(el('rect', { x: x, y: n.y - 17, width: n.w, height: 34, rx: 8, class: 'mm-br', style: st }));
+        gg.appendChild(el('text', { x: x + n.w / 2, y: n.y + 1, 'text-anchor': 'middle', class: 'mm-t1' }, n.t));
+        gg.appendChild(el('text', { x: x + n.w / 2, y: n.y + 28, 'text-anchor': 'middle', class: 'mm-t3' }, n.sub));
+      } else if (n.d === 2) {
+        gg.setAttribute('class', 'mm-nd' + (n.on ? ' on' : '')); gg.style.cursor = 'pointer';
+        gg.appendChild(el('rect', { x: x, y: n.y - 15, width: n.w, height: 30, rx: 8, class: 'mm-no', style: st }));
+        gg.appendChild(el('text', { x: x + n.w / 2, y: n.y + 5, 'text-anchor': 'middle', class: 'mm-t2' }, n.t));
+        gg.addEventListener('click', function () { if (moved) return; open[n.key] = !open[n.key]; draw(); });
+      } else {
+        var cls = n.kind === 'go' ? 'mm-gob' : n.kind === 'sec' ? 'mm-sec' + (n.on ? ' on' : '') : 'mm-kw';
+        gg.appendChild(el('rect', { x: x, y: n.y - 11, width: n.w, height: 22, rx: 11, class: cls, style: st }));
+        gg.appendChild(el('text', { x: x + 9, y: n.y + 4, class: n.kind === 'go' ? 'mm-t5' : (n.kind === 'sec' && n.on ? 'mm-t5' : 'mm-t4') }, n.t));
+        if (n.kind === 'go') { gg.style.cursor = 'pointer'; gg.addEventListener('click', function () { if (!moved) mmGo(n.v); }); }
+        if (n.kind === 'sec' && n.tog) { gg.style.cursor = 'pointer'; gg.addEventListener('click', function () { if (moved) return; open[n.key] = !open[n.key]; draw(); }); }
       }
-    });
-    // 根
-    var rh = rootLines.length * 20 + 16;
-    g.appendChild(box_(x0, ry, rootW, rh, 0, 'mm-rt'));
-    rootLines.forEach(function (l, i) {
-      g.appendChild(el('text', { x: x0 + rootW / 2, y: ry - rh / 2 + 8 + 15 + i * 20, 'text-anchor': 'middle', class: 'mm-t0' }, l));
-    });
-    // 大块
-    mm.branches.forEach(function (b, bi) {
-      var c = bi % 5, gg = el('g', { class: 'mm-bx' });
-      gg.appendChild(box_(x1, bys[bi], bw, 34, c, 'mm-br'));
-      gg.appendChild(el('text', { x: x1 + bw / 2, y: bys[bi] + 5, 'text-anchor': 'middle', class: 'mm-t1' }, b.t));
-      gg.appendChild(el('text', { x: x1 + bw / 2, y: bys[bi] + 26, 'text-anchor': 'middle', class: 'mm-t3' }, b.range));
       g.appendChild(gg);
     });
-    // 节点 + 要点
-    layout.forEach(function (L) {
-      var bi = L.b, c = bi % 5, n = mm.branches[bi].nodes[L.n], on = !!open[L.key];
-      var gn = el('g', { class: 'mm-nd' + (on ? ' on' : ''), style: 'cursor:pointer' });
-      gn.appendChild(box_(x2, L.y, nw, 30, c, 'mm-no'));
-      gn.appendChild(el('text', { x: x2 + nw / 2, y: L.y + 5, 'text-anchor': 'middle', class: 'mm-t2' }, n.t));
-      gn.addEventListener('click', function () { if (moved) return; open[L.key] = !open[L.key]; draw(); });
-      g.appendChild(gn);
-      if (on) {
-        var ls = links(n), items = n.kw.length + ls.length, top = L.y - (items * KH) / 2 + KH / 2;
-        n.kw.forEach(function (k, i) {
-          var w = tw(k, 12) + 16, yy = top + i * KH;
-          g.appendChild(el('rect', { x: x3, y: yy - 11, width: w, height: 22, rx: 11, class: 'mm-kw', style: '--c:var(--mm' + c + ')' }));
-          g.appendChild(el('text', { x: x3 + 8, y: yy + 4, class: 'mm-t4' }, k));
-        });
-        ls.forEach(function (l, j) {
-          var w = tw(l.t, 12) + 16, yy = top + (n.kw.length + j) * KH, gl = el('g', { style: 'cursor:pointer' });
-          gl.appendChild(el('rect', { x: x3, y: yy - 11, width: w, height: 22, rx: 11, class: 'mm-gob', style: '--c:var(--mm' + c + ')' }));
-          gl.appendChild(el('text', { x: x3 + 8, y: yy + 4, class: 'mm-t5' }, l.t));
-          gl.addEventListener('click', function () { if (!moved) mmGo(l.v); });
-          g.appendChild(gl);
-        });
-      }
-    });
     svg.appendChild(g);
-    svg._g = g; svg._bb = { w: x3 + kw, h: y };
+    var right = 0; nodes.forEach(function (n) { right = Math.max(right, xs[n.d] + n.w); });
+    svg._g = g; svg._bb = { w: right, h: y, fitW: xs[3] };
     apply();
   }
   function apply() { if (svg._g) svg._g.setAttribute('transform', 'translate(' + T.x + ',' + T.y + ') scale(' + T.k + ')'); }
   function fit() {
     var W = view.clientWidth || 340, H = view.clientHeight || 460, bb = svg._bb;
-    var k = Math.min(1, (W - 16) / (bb.w * 0.62), (H - 16) / bb.h);   // 默认只摆到「要点」列之前，宽度按前三列估
+    var k = Math.min(1, (W - 16) / (bb.fitW || bb.w), (H - 16) / bb.h);   // 默认只摆到「要点」列之前，宽度按前三列估
     T.k = Math.max(0.35, k); T.x = 8; T.y = 8; apply();
   }
   var moved = false, pts = {}, last = null;

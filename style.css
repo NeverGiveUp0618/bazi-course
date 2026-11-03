@@ -1092,3 +1092,5 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .mm-t0{font-size:15px;font-weight:700;fill:#fff}.mm-t1{font-size:14px;font-weight:700;fill:#fff}
 .mm-t3{font-size:10.5px;fill:var(--ink3)}.mm-t2{font-size:13px;fill:var(--ink)}
 .mm-t4{font-size:12px;fill:var(--ink)}.mm-t5{font-size:12px;fill:#fff;font-weight:600}
+
+.mm-sec{fill:var(--paper,var(--bg));stroke:var(--c);stroke-width:1.2}.mm-sec.on{fill:var(--c)}
