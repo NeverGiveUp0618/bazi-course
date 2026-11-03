@@ -1116,3 +1116,9 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .mm-nd.dn .mm-no{fill:#e3f3ea;stroke:#2E7D5A}.mm-nd.dn .mm-t2{fill:#1f6b49}
 .mm-nd.dn.on .mm-no{fill:#2E7D5A}.mm-nd.dn.on .mm-t2{fill:#fff}
 .mm-donebtn{fill:transparent;stroke:#2E7D5A;stroke-width:1.2;stroke-dasharray:3 2}
+
+/* ===== 宽屏两栏（复习卡 / 速查卡） ===== */
+@media (min-width:1000px){
+  #rvList,#rfList,#rvMore .rv-g[open]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;align-items:start}
+  #rfList>.rf-g,#rvMore .rv-g[open]>summary{grid-column:1/-1}
+}
