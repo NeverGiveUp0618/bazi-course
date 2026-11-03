@@ -1108,3 +1108,11 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .rv-pts li{margin:3px 0}
 .rv-kws{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .rv-kws span{font-size:12.5px;padding:1px 9px;border-radius:10px;background:var(--bg);border:1px solid var(--line);color:var(--ink2)}
+
+/* 导图：搜索 / 已复习 */
+.mm-q{flex:1;min-width:0;height:28px;padding:0 10px;border:1px solid var(--line);border-radius:14px;background:var(--paper,var(--bg2));color:var(--ink);font-size:12.5px}
+.mm-prog{font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.mm-nd.dim{opacity:.28}
+.mm-nd.dn .mm-no{fill:#e3f3ea;stroke:#2E7D5A}.mm-nd.dn .mm-t2{fill:#1f6b49}
+.mm-nd.dn.on .mm-no{fill:#2E7D5A}.mm-nd.dn.on .mm-t2{fill:#fff}
+.mm-donebtn{fill:transparent;stroke:#2E7D5A;stroke-width:1.2;stroke-dasharray:3 2}
