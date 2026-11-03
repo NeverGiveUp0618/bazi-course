@@ -136,6 +136,7 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 // 断命台 8KB，只有点进「断命台」才要
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 var needReview = function () { return need('data-review.js', 'DATA_REVIEW'); };
+var needMindmap = function () { return need('data-mindmap.js', 'DATA_MINDMAP'); };
 var needRef = function () { return need('data-ref.js', 'DATA_REF'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
@@ -1231,6 +1232,25 @@ function vkeStopSpy() {
 }
 
 
+
+/* 总览导图：根→大块→节点；点节点看关键词，再点「进入」跳到章节。内容源 content/导图.json。 */
+function renderMindmap(box, mm) {
+  if (!mm || !mm.branches) { box.innerHTML = ''; return; }
+  var html = '<div class="mm-root"><b>' + esc(mm.title) + '</b><p>' + esc(mm.intro) + '</p></div>';
+  mm.branches.forEach(function (b, i) {
+    html += '<div class="mm-b mm-c' + (i % 5) + ' open"><button class="mm-bh"><b>' + esc(b.t) + '</b><span>' + esc(b.range) + '</span></button><div class="mm-ns">';
+    b.nodes.forEach(function (n) {
+      html += '<div class="mm-n"><button class="mm-nt">' + esc(n.t) + '</button><div class="mm-d"><span>' +
+        n.kw.map(esc).join('</span><span>') + '</span><button class="mm-go" data-go="' + n.go + '">进入第 ' + n.go + ' 章 ›</button></div></div>';
+    });
+    html += '</div></div>';
+  });
+  box.innerHTML = html;
+  $$('.mm-bh', box).forEach(function (h) { h.onclick = function () { h.parentNode.classList.toggle('open'); }; });
+  $$('.mm-nt', box).forEach(function (h) { h.onclick = function () { h.parentNode.classList.toggle('open'); }; });
+  $$('.mm-go', box).forEach(function (g) { g.onclick = function () { show('chapter', +g.dataset.go); }; });
+}
+
 /* 复习卡：刷完课程后快速过要点。默认「速览」＝每章的问和一句话结论全显示，点开看自测 5 题；
    「自测」＝先遮住答案。内容全由 build.py 从教材 md 自动抽取。 */
 var RV_TEST = false;
@@ -1243,6 +1263,7 @@ function paintReview(box, all) {
   var html = '<div class="rv-bar"><button id="rvMode">' + (RV_TEST ? '改为速览' : '改为自测') + '</button>' +
     '<span>' + (RV_TEST ? '先答「问」，再点开看答案' : '速览：问与结论全显示，点开做自测题') + '</span>' +
     '<button id="rvAll">全部展开</button></div>' +
+    '<details class="rv-mm" open><summary>总览导图 · 先有整体思路</summary><div id="mmBox"></div></details>' +
     '<div class="sbox"><input id="rvq" type="search" placeholder="搜复习卡，如：虚实 制 应期 十神" autocomplete="off"></div><div id="rvList"></div>';
   box.innerHTML = html;
   function list() {
@@ -1273,6 +1294,7 @@ function paintReview(box, all) {
     $$('.rv-card', box).forEach(function (c) { c.classList.toggle('open', open); $$('.rv-qa', c).forEach(function (x) { x.classList.toggle('open', open); }); });
     this.textContent = open ? '全部收起' : '全部展开';
   };
+  needMindmap().then(function (mm) { renderMindmap($('#mmBox'), mm); });
   list();
 }
 

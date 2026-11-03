@@ -1050,3 +1050,25 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .doc h2.mh .mhb,.doc h3.mh .mhb,.doc h4.mh .mhb{align-self:flex-start;margin-top:.3em;top:0;white-space:nowrap}
 .doc h2.mh .mhn,.doc h3.mh .mhn,.doc h4.mh .mhn{align-self:flex-start}
 .mht{text-wrap:balance}
+
+/* ===== 总览导图 ===== */
+:root{--mm0:#6fa8dc;--mm1:#6cc08b;--mm2:#e0a94a;--mm3:#e07a6a;--mm4:#a78bd4}
+.rv-mm{margin:0 0 12px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--bg2)}
+.rv-mm>summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--indigo)}
+.mm-root{margin:10px 0 8px;padding:10px 12px;border-radius:8px;background:var(--bg);border:1px solid var(--line)}
+.mm-root b{font-size:15.5px;color:var(--ink)}
+.mm-root p{margin:4px 0 0;font-size:12.5px;color:var(--ink3);line-height:1.7}
+.mm-b{margin:8px 0;border-left:4px solid var(--c);border-radius:0 6px 6px 0;background:var(--bg)}
+.mm-c0{--c:var(--mm0)}.mm-c1{--c:var(--mm1)}.mm-c2{--c:var(--mm2)}.mm-c3{--c:var(--mm3)}.mm-c4{--c:var(--mm4)}
+.mm-bh{all:unset;box-sizing:border-box;display:flex;justify-content:space-between;align-items:baseline;gap:8px;width:100%;padding:8px 10px;cursor:pointer}
+.mm-bh b{font-size:14.5px;color:var(--c)}.mm-bh span{font-size:11.5px;color:var(--ink3);white-space:nowrap}
+.mm-ns{display:none;padding:0 8px 8px;flex-wrap:wrap;gap:6px}
+.mm-b.open .mm-ns{display:flex}
+.mm-n{flex:0 0 auto;max-width:100%}
+.mm-nt{all:unset;cursor:pointer;display:inline-block;padding:4px 11px;border-radius:14px;border:1px solid var(--c);color:var(--c);font-size:13px}
+.mm-n.open .mm-nt{background:var(--c);color:#0b0f12}
+.mm-d{display:none;flex-basis:100%;margin:6px 0 2px;padding:7px 9px;border-radius:6px;background:var(--bg2);font-size:12.5px;line-height:1.9}
+.mm-n.open{flex-basis:100%}
+.mm-n.open .mm-d{display:block}
+.mm-d>span{display:inline-block;margin:0 6px 4px 0;padding:0 8px;border-radius:10px;background:var(--bg);border:1px solid var(--line);color:var(--ink2)}
+.mm-go{all:unset;cursor:pointer;display:inline-block;margin:0 10px 0 0;color:var(--indigo);font-size:12.5px;font-weight:600}

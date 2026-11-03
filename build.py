@@ -24,6 +24,19 @@ def read(p):
         return f.read()
 
 
+def build_mindmap():
+    """总览导图：content/导图.json 是源（手写骨架），这里只校验章号并输出。"""
+    fp = os.path.join(SRC, '导图.json')
+    if not os.path.exists(fp):
+        return {}
+    mm = json.loads(read(fp))
+    for b in mm['branches']:
+        for n in b['nodes']:
+            if not (isinstance(n.get('go'), int) and 1 <= n['go'] <= 16):
+                sys.exit('✗ 导图里的章号不对：%s' % n)
+    return mm
+
+
 def build_review():
     """复习卡：教材 16 章，每章 = 本章解决什么（问）＋本章的一句话（答）＋自测 5 题的问与答。
     全部从教材 md 自动抽，不另写第二份；改教材重跑 build 即同步。"""
@@ -1013,6 +1026,7 @@ def main():
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
         ('data-ref.js', write_js('data-ref.js', 'DATA_REF', build_ref())),
         ('data-review.js', write_js('data-review.js', 'DATA_REVIEW', build_review())),
+        ('data-mindmap.js', write_js('data-mindmap.js', 'DATA_MINDMAP', build_mindmap())),
         # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),
         # v课笔记原文（三卷 20 万字）同样按需加载
