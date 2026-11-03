@@ -1320,7 +1320,26 @@ RENDER.outline = function () {
 };
 
 /* 文内跳转：[[wiki]] 与题号引用（原文里写作【21】） */
+
+/* 标题自适应：标题末尾的「（2026-08-06 追加）」「（面授班）」这类小注缩成小字、整体不拆开；
+   标题本身用 balance 均衡断行，不再因为小注就孤零零换一行。 */
+function tidyHeadings(root) {
+  $$('h1, h2, h3, h4', root).forEach(function (h) {
+    if (h.querySelector('.ht')) return;
+    var host = h.querySelector('.mht') || h, n = host.lastChild;
+    while (n && n.nodeType === 1 && /^(CODE|SPAN)$/.test(n.tagName) && !n.textContent.trim()) n = n.previousSibling;
+    if (!n || n.nodeType !== 3) return;
+    var m = n.nodeValue.match(/^([\s\S]*?\S)\s*([（(][^（()）]{1,18}[）)])\s*$/);
+    if (!m || m[1].replace(/[^一-龥A-Za-z0-9]/g, '').length < 3) return;
+    n.nodeValue = m[1] + ' ';
+    var sm = document.createElement('small');
+    sm.className = 'ht';
+    sm.textContent = m[2];
+    n.parentNode.insertBefore(sm, n.nextSibling);
+  });
+}
 function bindDoc(root) {
+  tidyHeadings(root);
   $$('a.wiki', root).forEach(function (a) {
     a.onclick = function (e) {
       e.preventDefault();

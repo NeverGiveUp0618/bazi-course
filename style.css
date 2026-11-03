@@ -1039,3 +1039,14 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .rf-b{display:none;padding:0 10px 10px}
 .rf-i.open .rf-b{display:block}
 .rf-go{all:unset;cursor:pointer;display:block;margin-top:6px;font-size:13px;color:var(--indigo)}
+
+/* ===== 标题自适应：均衡断行；小注与标签缩小、不拆开 ===== */
+.doc h1,.doc h2,.doc h3,.doc h4{text-wrap:balance}
+.doc h2 code,.doc h3 code,.doc h4 code{font-size:.62em;white-space:nowrap;vertical-align:.15em;margin-left:.25em}
+.doc .ht{font-size:.68em;font-weight:400;color:var(--ink3);white-space:nowrap;margin-left:.3em;letter-spacing:0}
+
+/* 标题里的「重点／必背／注意」小标签：固定在标题右上，标题在自己的栏里换行，不再把标签挤到下一行 */
+.doc h2.mh,.doc h3.mh,.doc h4.mh{flex-wrap:nowrap}
+.doc h2.mh .mhb,.doc h3.mh .mhb,.doc h4.mh .mhb{align-self:flex-start;margin-top:.3em;top:0;white-space:nowrap}
+.doc h2.mh .mhn,.doc h3.mh .mhn,.doc h4.mh .mhn{align-self:flex-start}
+.mht{text-wrap:balance}
