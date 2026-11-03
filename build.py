@@ -75,6 +75,82 @@ def build_review():
     return items
 
 
+def _ref_clean(t):
+    t = re.sub(r'[*`⭐⚠️💡]+', '', t or '').strip()
+    t = re.sub(r'^[、，,\s①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]+', '', t)
+    t = re.sub(r'^[一二三四五六七八九十〇\d]+\s*[、.．·]\s*[A-Za-z]?\s*', '', t)
+    t = re.sub(r'^[一二三四五六七八九十]+·[A-Z]\s*[、.．]?\s*', '', t)
+    head = re.split(r'[：:（(]', t)[0].strip()
+    if len(head) >= 3:
+        t = head
+    return re.sub(r'^[、，,\s]+', '', t).strip('　 ·—-')
+
+
+def _is_pan_table(block):
+    """命例里的四柱盘表不算「速查」：表头里同时有年月日时（或年柱/日柱）。"""
+    head = re.sub(r'[*\s]', '', block[0])
+    cells = [c for c in head.split('|') if c]
+    if any(c in ('年柱', '月柱', '日柱', '时柱') for c in cells):
+        return True
+    return all(x in cells for x in ('年', '月', '日', '时'))
+
+
+def build_ref():
+    """速查表：把教材 16 章里的表格抽出来，按章分组。表名取表上方的短说明，否则取最近小标题。
+    表本身仍长在教材里（内容源只有一处），这里只是换一种检索方式。"""
+    d = os.path.join(SRC, '实用八字教材')
+    out = []
+    for fn_ in sorted(os.listdir(d)):
+        m = re.match(r'^(\d\d)-.+\.md$', fn_)
+        if not m or not (1 <= int(m.group(1)) <= 16):
+            continue
+        num = int(m.group(1))
+        md = read(os.path.join(d, fn_))
+        t = re.search(r'^# (.+)$', md, re.M)
+        ctitle = re.sub(r'\s*⭐+\s*$', '', t.group(1).strip()) if t else fn_
+        lines = md.split('\n')
+        h2 = h3 = ''
+        i = 0
+        while i < len(lines):
+            ln = lines[i]
+            mm = re.match(r'^##\s+(.*)$', ln)
+            if mm and not ln.startswith('###'):
+                h2, h3 = _ref_clean(mm.group(1)), ''
+            mm = re.match(r'^###\s+(.*)$', ln)
+            if mm:
+                h3 = _ref_clean(mm.group(1))
+            if ln.startswith('|'):
+                start = i
+                while i < len(lines) and lines[i].startswith('|'):
+                    i += 1
+                block = lines[start:i]
+                if len(block) < 3 or _is_pan_table(block):
+                    continue
+                lead = ''
+                for j in range(start - 1, max(-1, start - 3), -1):
+                    tt = lines[j].strip()
+                    if not tt:
+                        continue
+                    if len(tt) <= 40 and not tt.startswith(('|', '>', '-', '#', '`')):
+                        lead = _ref_clean(tt)
+                    break
+                name = lead if 2 <= len(lead) <= 14 else (h3 or h2 or lead or '第%d章的表' % num)
+                name = name if len(name) <= 28 else name[:27] + '…'
+                out.append({'num': num, 'chapter': ctitle, 'sec': h3 or h2, 'name': name,
+                            'html': md2html('\n'.join(block)),
+                            'text': strip_md('\n'.join(block))})
+                continue
+            i += 1
+    seen = {}
+    for r in out:
+        seen.setdefault((r['num'], r['name']), []).append(r)
+    for (num, name), grp in seen.items():
+        if len(grp) > 1:
+            for k, r in enumerate(grp, 1):
+                r['name'] = '%s %s' % (name, '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳'[k - 1] if k <= 20 else str(k))
+    return out
+
+
 def write_js(name, varname, obj):
     os.makedirs(OUT, exist_ok=True)
     p = os.path.join(OUT, name)
@@ -935,6 +1011,7 @@ def main():
         ('data-index.js', write_js('data-index.js', 'DATA_INDEX',
                                    md2html(index_md, heading_offset=0))),
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
+        ('data-ref.js', write_js('data-ref.js', 'DATA_REF', build_ref())),
         ('data-review.js', write_js('data-review.js', 'DATA_REVIEW', build_review())),
         # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),

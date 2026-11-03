@@ -634,7 +634,7 @@ const wait = () => new Promise(r => setTimeout(r, 30));
     });
   };
   var tabs = Array.from(D.querySelectorAll('.tabbar button'));
-  ok(tabs.length === 4, '底栏 4 个 tab');
+  ok(tabs.length === 5, '底栏 5 个 tab（首学查速练）');
   ok(tabs.every(function (b) { return isPlain(b.textContent.trim()); }),
      '底栏没有图标，只有文字：' + tabs.map(function (b) { return b.textContent.trim(); }).join(' '));
   ok(D.querySelectorAll('.tabbar .ic').length === 0, '底栏 .ic 图标位已删干净');

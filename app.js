@@ -136,6 +136,7 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 // 断命台 8KB，只有点进「断命台」才要
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 var needReview = function () { return need('data-review.js', 'DATA_REVIEW'); };
+var needRef = function () { return need('data-ref.js', 'DATA_REF'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
 // 课堂笔记（中级班讲义 p44–251，用户拍照逐页转录）400KB，挂在 v课笔记 列表最下面，点进去才要
@@ -153,11 +154,11 @@ var cur = { scr: 'home', id: null };
 
 var TITLES = {
   home: '命理精讲', course: '教材 · 16章', chapter: '', notes: '笔记与索引',
-  note: '', index: '问题清单', outline: '学习路线', review: '复习卡', qlist: '命例题库',
+  note: '', index: '问题清单', outline: '学习路线', review: '复习卡', ref: '速查表', qlist: '命例题库',
   quiz: '', search: '搜索', mynotes: '我的笔记', desk: '断命台',
   vke: 'v课笔记', vkeread: ''
 };
-var ROOTS = { home: 1, course: 1, notes: 1, qlist: 1 };
+var ROOTS = { home: 1, course: 1, notes: 1, qlist: 1, ref: 1 };
 
 function _apply(scr, id) {
   if (cur.scr === 'desk' && scr !== 'desk') closePick();   // 选字浮层是 fixed 的，换屏必须收掉
@@ -1273,6 +1274,44 @@ function paintReview(box, all) {
     this.textContent = open ? '全部收起' : '全部展开';
   };
   list();
+}
+
+
+/* 速查表：教材 16 章里的表格集中查。数据由 build.py 的 build_ref() 从教材 md 自动抽取。 */
+RENDER.ref = function () {
+  var box = $('#refBody');
+  if (!box.dataset.ready) box.innerHTML = '<div class="empty">载入中…</div>';
+  needRef().then(function (all) { paintRef(box, all || []); });
+};
+function paintRef(box, all) {
+  if (!box.dataset.ready) {
+    box.dataset.ready = '1';
+    box.innerHTML = '<div class="rf-bar"><span id="rfCnt"></span><button id="rfAll">全部展开</button></div>' +
+      '<input id="rfq" type="search" placeholder="搜表名或表里的字，如：十神 驿马 制局 应期" autocomplete="off"><div id="rfList"></div>';
+    $('#rfq').oninput = function () { clearTimeout(box._t); box._t = setTimeout(function () { drawRef(all); }, 150); };
+    $('#rfAll').onclick = function () {
+      var open = this.textContent === '全部展开';
+      $$('.rf-i', box).forEach(function (d) { d.classList.toggle('open', open); });
+      this.textContent = open ? '全部收起' : '全部展开';
+    };
+  }
+  drawRef(all);
+}
+function drawRef(all) {
+  var kw = $('#rfq').value.trim(), words = kw.split(/\s+/).filter(Boolean), html = '', cur = -1, n = 0;
+  all.forEach(function (r) {
+    if (!words.every(function (w) { return (r.name + r.sec + r.chapter + r.text).indexOf(w) >= 0; })) return;
+    n++;
+    if (r.num !== cur) { cur = r.num; html += '<div class="rf-g"><i>' + r.num + '</i><span>' + esc(r.chapter) + '</span></div>'; }
+    html += '<div class="rf-i"><button class="rf-h"><b>' + esc(r.name) + '</b><span>' + esc(r.sec === r.name ? '' : r.sec) + '</span></button>' +
+      '<div class="rf-b doc">' + r.html + '<button class="rf-go" data-n="' + r.num + '">到第 ' + r.num + ' 章看上下文 ›</button></div></div>';
+  });
+  $('#rfCnt').textContent = n + ' 张表';
+  $('#rfList').innerHTML = html || '<p class="muted">没找到。换个词试试。</p>';
+  $$('.rf-i', $('#rfList')).forEach(function (d) {
+    d.querySelector('.rf-h').onclick = function () { d.classList.toggle('open'); };
+    d.querySelector('.rf-go').onclick = function () { show('chapter', +this.dataset.n); };
+  });
 }
 
 RENDER.outline = function () {
