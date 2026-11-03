@@ -1094,3 +1094,6 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .mm-t4{font-size:12px;fill:var(--ink)}.mm-t5{font-size:12px;fill:#fff;font-weight:600}
 
 .mm-sec{fill:var(--paper,var(--bg));stroke:var(--c);stroke-width:1.2}.mm-sec.on{fill:var(--c)}
+
+.mm-mk{fill:#fff;stroke:var(--c,var(--mm0));stroke-width:1.3}.mm-mk.on{fill:rgba(255,255,255,.9)}.mm-mkp{fill:none;stroke:var(--mm0);stroke-width:1.8;stroke-linecap:round}
+.mm-nd .mm-mk,.mm-nd .mm-mkp{--c:inherit}

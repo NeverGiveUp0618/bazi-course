@@ -1266,6 +1266,10 @@ function renderMindmap(box, mm) {
     return r;
   }
   function wrap(s, n) { var o = []; s = s.replace(/：/, '：\n').split('\n'); s.forEach(function (p) { for (var i = 0; i < p.length; i += n) o.push(p.slice(i, i + n)); }); return o; }
+  function mark(gg, n, cx) {
+    gg.appendChild(el('circle', { cx: cx, cy: n.y, r: 7, class: 'mm-mk' + (n.on ? ' on' : '') }));
+    gg.appendChild(el('path', { d: 'M' + (cx - 3.5) + ',' + n.y + 'h7' + (n.on ? '' : 'M' + cx + ',' + (n.y - 3.5) + 'v7'), class: 'mm-mkp' + (n.on ? ' on' : '') }));
+  }
   function draw() {
     svg.innerHTML = '';
     var g = el('g', {}), FS = 13, KH = 26, GAP = 40;
@@ -1280,7 +1284,7 @@ function renderMindmap(box, mm) {
           if (!N.on) return;
           n.kw.forEach(function (k) { N.ch.push({ t: k, d: 3, c: bi % 5, kind: 'kw', ch: [], par: N }); });
           (n.sec || []).forEach(function (s, si) {
-            var sk = key + '/' + si, S = { t: s.t, d: 3, c: bi % 5, kind: 'sec', key: sk, ch: [], par: N, tog: !!(s.sub && s.sub.length), on: !!open[sk] };
+            var sk = key + '/' + si, has = !!(s.sub && s.sub.length), S = { t: s.t, d: 3, c: bi % 5, kind: has ? 'sec' : 'kw', key: sk, ch: [], par: N, tog: has, on: !!open[sk] };
             N.ch.push(S);
             if (S.on) s.sub.forEach(function (u) { S.ch.push({ t: u, d: 4, c: bi % 5, kind: 'kw', ch: [], par: S }); });
           });
@@ -1291,7 +1295,7 @@ function renderMindmap(box, mm) {
     }
     var root = build(), maxd = {};
     var FSZ = [15, 14, 13, 12, 12];
-    (function walk(n) { n.w = tw(n.t, FSZ[n.d]) + (n.d === 0 ? 24 : n.d < 3 ? 24 : 18); maxd[n.d] = Math.max(maxd[n.d] || 0, n.w); n.ch.forEach(walk); })(root);
+    (function walk(n) { n.w = tw(n.t, FSZ[n.d]) + (n.d === 0 ? 24 : n.d < 3 ? 24 : 18) + (n.tog ? 20 : 0); maxd[n.d] = Math.max(maxd[n.d] || 0, n.w); n.ch.forEach(walk); })(root);
     var xs = [0];
     for (var d = 1; d <= 4; d++) xs[d] = xs[d - 1] + (maxd[d - 1] || 0) + GAP;
     var y = 0;
@@ -1321,13 +1325,15 @@ function renderMindmap(box, mm) {
       } else if (n.d === 2) {
         gg.setAttribute('class', 'mm-nd' + (n.on ? ' on' : '')); gg.style.cursor = 'pointer';
         gg.appendChild(el('rect', { x: x, y: n.y - 15, width: n.w, height: 30, rx: 8, class: 'mm-no', style: st }));
-        gg.appendChild(el('text', { x: x + n.w / 2, y: n.y + 5, 'text-anchor': 'middle', class: 'mm-t2' }, n.t));
+        gg.appendChild(el('text', { x: x + (n.w - 20) / 2 + 2, y: n.y + 5, 'text-anchor': 'middle', class: 'mm-t2' }, n.t));
         gg.addEventListener('click', function () { if (moved) return; open[n.key] = !open[n.key]; draw(); });
+        mark(gg, n, x + n.w - 13);
       } else {
         var cls = n.kind === 'go' ? 'mm-gob' : n.kind === 'sec' ? 'mm-sec' + (n.on ? ' on' : '') : 'mm-kw';
         gg.appendChild(el('rect', { x: x, y: n.y - 11, width: n.w, height: 22, rx: 11, class: cls, style: st }));
         gg.appendChild(el('text', { x: x + 9, y: n.y + 4, class: n.kind === 'go' ? 'mm-t5' : (n.kind === 'sec' && n.on ? 'mm-t5' : 'mm-t4') }, n.t));
         if (n.kind === 'go') { gg.style.cursor = 'pointer'; gg.addEventListener('click', function () { if (!moved) mmGo(n.v); }); }
+        if (n.tog) mark(gg, n, x + n.w - 13);
         if (n.kind === 'sec' && n.tog) { gg.style.cursor = 'pointer'; gg.addEventListener('click', function () { if (moved) return; open[n.key] = !open[n.key]; draw(); }); }
       }
       g.appendChild(gg);
