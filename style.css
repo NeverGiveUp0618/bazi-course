@@ -997,3 +997,8 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .dstep .dsec.s2{color:#dc2626;background:rgba(220,38,38,.09)}
 .dstep .dsec+ul{padding-top:2px}
 .dstep .dgap{margin:2px 13px 10px;padding:6px 9px;font-size:12px;color:var(--ink3);border:1px dashed var(--line);border-radius:8px;line-height:1.7}
+
+/* ===== 表格不再一字一行：width:max-content 让列按内容撑开，放不下左右滑动 ===== */
+.doc .tw table{width:max-content;min-width:100%}
+.doc .tw td:not(.nw),.doc .tw th:not(.nw){min-width:8em;max-width:26em}
+.doc .tw td:first-child:not(.nw),.doc .tw th:first-child:not(.nw){min-width:5em}
