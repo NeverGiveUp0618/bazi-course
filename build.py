@@ -117,6 +117,75 @@ def build_review():
     return items
 
 
+def _quote_block(md, head_re):
+    """取以「> 」开头、首行匹配 head_re 的连续引用块，返回去掉首行标签后的正文。"""
+    lines = md.splitlines()
+    for i, ln in enumerate(lines):
+        if re.match(head_re, ln):
+            blk = []
+            j = i
+            while j < len(lines) and lines[j].startswith('>'):
+                blk.append(re.sub(r'^>\s?', '', lines[j]))
+                j += 1
+            first = re.sub(r'^\[![a-z]+\]\s*[^\n]*?[：:）)]?\s*$', '', blk[0]).strip() if blk else ''
+            head = re.sub(r'^\[![a-z]+\]\s*', '', blk[0]).strip()
+            body = '\n'.join(blk[1:]).strip()
+            return head, body
+    return None, None
+
+
+def build_review_more(vke, kt):
+    """复习卡补充：笔记 23 篇（问＋结论）、v课笔记 136 课（只取原稿里标了星的句子）、课堂笔记 32 节（小标题）。
+    全部是抽取，不改写、不新增规则。"""
+    out = {'notes': [], 'vke': [], 'kt': []}
+    for fn_ in sorted(os.listdir(SRC)):
+        m = re.match(r'^八字(\d\d)-(.+)\.md$', fn_)
+        if not m:
+            continue
+        md = read(os.path.join(SRC, fn_))
+        t = re.search(r'^# (.+)$', md, re.M)
+        title = re.sub(r'^八字\d+\s*[·.]\s*', '', t.group(1)).strip() if t else m.group(2)
+        qh, qb = _quote_block(md, r'^> \[!question\]')
+        ch, cb = _quote_block(md, r'^> \[!tip\]')
+        if qh is None:
+            qh, qb = _quote_block(md, r'^> \*\*原问')
+            if qh is not None:
+                qb = (re.sub(r'^\*\*原问[^*]*\*\*[：:]?\s*', '', qh + ('\n' + qb if qb else ''))).strip()
+            qh = ''
+        if ch is None:
+            ch, cb = _quote_block(md, r'^> \*\*结论先说\*\*')
+            if ch is not None:
+                cb = (re.sub(r'^\*\*结论先说\*\*[：:]\s*', '', ch + ('\n' + cb if cb else ''))).strip()
+        if ch is None and cb is None:
+            mm = re.search(r'^(?:⭐\s*)?\*\*先说结论\*\*[：:]\s*(.+?)(?:\n\s*\n|\Z)', md, re.M | re.S)
+            if mm:
+                ch, cb = '', mm.group(1).strip()
+        q = (qh.replace('我的问题', '').strip(' （()') if qh else '')
+        qtxt = (qb or '').strip()
+        ctxt = (cb or '').strip()
+        if not qtxt and not ctxt:
+            continue
+        out['notes'].append({
+            'n': int(m.group(1)), 'title': title,
+            'q': md2html(qtxt or qh or ''), 'concl': md2html(ctxt) if ctxt else '',
+            'text': strip_md(' '.join([title, qtxt, ctxt])),
+        })
+    for L in vke.get('lessons', []):
+        blocks = [b for sg in L['segs'] for b in sg['blocks'] if b.get('t') == 'p']
+        pts = [b['s'] for b in blocks if b.get('star')]
+        head = [b['s'] for b in blocks[:2]] if not pts else []
+        out['vke'].append({
+            'k': L['k'], 'vol': L.get('vol', ''), 'src': L.get('src', []),
+            'pts': pts[:8], 'more': max(0, len(pts) - 8), 'head': head, 'nChart': L.get('nChart', 0),
+            'text': ' '.join(pts + head),
+        })
+    for c in kt.get('chaps', []):
+        hs = re.findall(r'<h3 class="kth2">(.*?)</h3>', c.get('html', ''))
+        out['kt'].append({'k': c['k'], 'title': c['title'], 'part': c.get('part', ''), 'pg': c.get('pgtxt', ''),
+                          'hs': [re.sub(r'<[^>]+>', '', h) for h in hs][:12], 'text': c['title'] + ' ' + ' '.join(hs)})
+    return out
+
+
 def _ref_clean(t):
     t = re.sub(r'[*`⭐⚠️💡]+', '', t or '').strip()
     t = re.sub(r'^[、，,\s①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮]+', '', t)
@@ -1055,6 +1124,7 @@ def main():
         ('data-meta.js', write_js('data-meta.js', 'DATA_META', meta)),
         ('data-ref.js', write_js('data-ref.js', 'DATA_REF', build_ref())),
         ('data-review.js', write_js('data-review.js', 'DATA_REVIEW', build_review())),
+        ('data-review2.js', write_js('data-review2.js', 'DATA_REVIEW2', build_review_more(vke, kt))),
         ('data-mindmap.js', write_js('data-mindmap.js', 'DATA_MINDMAP', build_mindmap())),
         # 断命台是「实操工具」，首页用不到 ⇒ 与问题清单一样按需加载，别撑首屏包
         ('data-desk.js', write_js('data-desk.js', 'DATA_DESK', desk)),

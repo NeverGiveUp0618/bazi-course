@@ -137,6 +137,7 @@ var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 var needDesk   = function () { return need('data-desk.js', 'DATA_DESK'); };
 var needReview = function () { return need('data-review.js', 'DATA_REVIEW'); };
 var needMindmap = function () { return need('data-mindmap.js', 'DATA_MINDMAP'); };
+var needReview2 = function () { return need('data-review2.js', 'DATA_REVIEW2'); };
 var needRef = function () { return need('data-ref.js', 'DATA_REF'); };
 // v课笔记原文 235KB——三卷 20 万字，只有点进去才要，绝不能进首屏包
 var needVke    = function () { return need('data-vke.js', 'DATA_VKE'); };
@@ -1407,12 +1408,55 @@ RENDER.review = function () {
   box.innerHTML = '<div class="empty">载入中…</div>';
   needReview().then(function (all) { paintReview(box, all || []); });
 };
+
+/* 复习卡补充：笔记 / v课笔记（标星句）/ 课堂笔记，三组折叠，随搜索词过滤。 */
+function paintReviewMore(R2) {
+  var box = $('#rvMore'); if (!box || !R2) return;
+  var kw = ($('#rvq').value || '').trim(), words = kw.split(/\s+/).filter(Boolean);
+  function ok(t) { return words.every(function (w) { return (t || '').indexOf(w) >= 0; }); }
+  var notes = (R2.notes || []).filter(function (x) { return ok(x.text); });
+  var vke = (R2.vke || []).filter(function (x) { return ok(x.text + ' 第' + x.k + '课'); });
+  var kt = (R2.kt || []).filter(function (x) { return ok(x.text); });
+  var openAll = words.length > 0;
+  function grp(id, title, n, body) {
+    if (!n) return '';
+    return '<details class="rv-g" ' + (openAll ? 'open' : '') + '><summary><b>' + title + '</b><span>' + n + '</span></summary>' + body + '</details>';
+  }
+  var h = '';
+  h += grp('n', '笔记 · 问与结论', notes.length, notes.map(function (x) {
+    return '<div class="rv-card rv-n"><button class="rv-h"><b>' + esc('笔记' + x.n + ' · ' + x.title) + '</b></button>' +
+      '<div class="rv-q"><i>问</i><div>' + x.q + '</div></div>' +
+      (x.concl ? '<div class="rv-a' + (RV_TEST ? ' hid' : '') + '"><i>答</i><div>' + x.concl + '</div></div>' : '') +
+      '<div class="rv-b"><button class="rv-go" data-note="' + x.n + '">到笔记 ' + x.n + ' 看全文 ›</button></div></div>';
+  }).join(''));
+  h += grp('v', 'v课笔记 · 老师标星的要点', vke.length, vke.map(function (x) {
+    var inner = x.pts.length ? '<ul class="rv-pts">' + x.pts.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>' +
+        (x.more ? '<p class="muted">另有 ' + x.more + ' 条标星，见原课。</p>' : '')
+      : '<p class="muted">这课没有标星句，开头原话：</p><ul class="rv-pts">' + x.head.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>';
+    return '<div class="rv-card rv-v"><button class="rv-h"><b>第 ' + x.k + ' 课</b><em>' + esc((x.vol ? x.vol + '册 · ' : '') + '讲 ' + x.src.join('、') + (x.nChart ? ' · ' + x.nChart + ' 盘' : '')) + '</em></button>' +
+      '<div class="rv-b">' + inner + '<button class="rv-go" data-lec="' + x.k + '">到第 ' + x.k + ' 课看原文 ›</button></div></div>';
+  }).join(''));
+  h += grp('k', '课堂笔记 · 讲义小节', kt.length, kt.map(function (x) {
+    return '<div class="rv-card rv-k"><button class="rv-h"><b>' + esc(x.title) + '</b><em>' + esc(x.part + (x.pg ? ' · ' + x.pg : '')) + '</em></button>' +
+      '<div class="rv-b"><div class="rv-kws">' + x.hs.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') + '</div>' +
+      '<button class="rv-go" data-lec="k' + x.k + '">到这一节看原文 ›</button></div></div>';
+  }).join(''));
+  box.innerHTML = h;
+  $$('.rv-card', box).forEach(function (c) {
+    c.querySelector('.rv-h').onclick = function () { c.classList.toggle('open'); };
+    var q = c.querySelector('.rv-q'); if (q) q.onclick = function () { c.classList.toggle('open'); };
+  });
+  $$('[data-note]', box).forEach(function (b) { b.onclick = function () { show('note', +b.dataset.note); }; });
+  $$('[data-lec]', box).forEach(function (b) { b.onclick = function () { show('vkeread', b.dataset.lec); window.scrollTo(0, 0); }; });
+  $$('.rv-card .doc, .rv-n .rv-q, .rv-n .rv-a', box).forEach(function (d) { try { bindDoc(d); } catch (e) {} });
+}
+
 function paintReview(box, all) {
   var html = '<div class="rv-bar"><button id="rvMode">' + (RV_TEST ? '改为速览' : '改为自测') + '</button>' +
     '<span>' + (RV_TEST ? '先答「问」，再点开看答案' : '速览：问与结论全显示，点开做自测题') + '</span>' +
     '<button id="rvAll">全部展开</button></div>' +
     '<details class="rv-mm" open><summary>总览导图 · 先有整体思路</summary><div id="mmBox"></div></details>' +
-    '<div class="sbox"><input id="rvq" type="search" placeholder="搜复习卡，如：虚实 制 应期 十神" autocomplete="off"></div><div id="rvList"></div>';
+    '<div class="sbox"><input id="rvq" type="search" placeholder="搜复习卡，如：虚实 制 应期 十神" autocomplete="off"></div><div id="rvList"></div><div id="rvMore"></div>';
   box.innerHTML = html;
   function list() {
     var kw = $('#rvq').value.trim(), words = kw.split(/\s+/).filter(Boolean), out = '';
@@ -1435,7 +1479,9 @@ function paintReview(box, all) {
     });
     $$('.doc', $('#rvList')).forEach(function (d) { try { bindDoc(d); } catch (e) {} });
   }
-  $('#rvq').oninput = function () { list(); };
+  var R2 = null;
+  $('#rvq').oninput = function () { list(); paintReviewMore(R2); };
+  needReview2().then(function (r) { R2 = r; paintReviewMore(R2); });
   $('#rvMode').onclick = function () { RV_TEST = !RV_TEST; paintReview(box, all); };
   $('#rvAll').onclick = function () {
     var open = this.textContent === '全部展开';
