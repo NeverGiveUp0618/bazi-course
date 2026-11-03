@@ -1234,7 +1234,167 @@ function vkeStopSpy() {
 
 
 /* 总览导图：根→大块→节点；点节点看关键词，再点「进入」跳到章节。内容源 content/导图.json。 */
+function mmGo(v) { show('chapter', +v); }
+/* 导图（图形版）：左→右的树，带连线；可拖动、双指/滚轮缩放；点节点展开关键词。 */
 function renderMindmap(box, mm) {
+  if (!mm || !mm.branches) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="mm-bar"><button class="on" data-m="g">图</button><button data-m="l">列表</button>' +
+    '<span class="mm-tip">拖动平移 · 双指/滚轮缩放 · 点节点看要点</span><button class="mm-fit">复位</button></div>' +
+    '<div class="mm-view"><svg class="mm-svg"></svg></div><div class="mm-list" hidden></div>';
+  var view = $('.mm-view', box), svg = $('.mm-svg', box), list = $('.mm-list', box);
+  renderMindmapList(list, mm);
+  $$('.mm-bar [data-m]', box).forEach(function (b) {
+    b.onclick = function () {
+      $$('.mm-bar [data-m]', box).forEach(function (x) { x.classList.toggle('on', x === b); });
+      view.hidden = b.dataset.m !== 'g'; list.hidden = b.dataset.m === 'g';
+    };
+  });
+  var NS = 'http://www.w3.org/2000/svg', open = {}, T = { x: 0, y: 0, k: 1 }, fitted = false;
+  function el(tag, attrs, txt) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (txt != null) e.textContent = txt;
+    return e;
+  }
+  function tw(s, fs) { var w = 0; for (var i = 0; i < s.length; i++) w += s.charCodeAt(i) > 255 ? fs : fs * 0.58; return w; }
+  function links(n) {
+    var r = [];
+    [['go', n.go], ['go2', n.go2]].forEach(function (p, i) {
+      if (p[1] == null || p[1] === '') return;
+      r.push({ v: p[1], t: (typeof p[1] === 'number') ? '进入第 ' + p[1] + ' 章 ›' : '进入' + (n.go2 ? (i ? '（下）' : '（上）') : '') + ' ›' });
+    });
+    return r;
+  }
+  function wrap(s, n) { var o = []; s = s.replace(/：/, '：\n').split('\n'); s.forEach(function (p) { for (var i = 0; i < p.length; i += n) o.push(p.slice(i, i + n)); }); return o; }
+  function draw() {
+    svg.innerHTML = '';
+    var g = el('g', {}), FS = 13, PAD = 12, ROW = 40, KH = 26;
+    var rootLines = wrap(mm.title, 9), rootW = 0;
+    rootLines.forEach(function (l) { rootW = Math.max(rootW, tw(l, 15)); });
+    rootW += 24;
+    var bw = 0, nw = 0, kw = 0;
+    mm.branches.forEach(function (b) {
+      bw = Math.max(bw, tw(b.t, 14) + 2 * PAD);
+      b.nodes.forEach(function (n) {
+        nw = Math.max(nw, tw(n.t, FS) + 2 * PAD);
+        n.kw.forEach(function (k) { kw = Math.max(kw, tw(k, 12) + 16); });
+        links(n).forEach(function (l) { kw = Math.max(kw, tw(l.t, 12) + 16); });
+      });
+    });
+    var GAP = 46, x0 = 0, x1 = x0 + rootW + GAP, x2 = x1 + bw + GAP, x3 = x2 + nw + GAP;
+    var y = 0, bys = [];
+    var layout = [];
+    mm.branches.forEach(function (b, bi) {
+      var ys = [];
+      b.nodes.forEach(function (n, ni) {
+        var key = bi + '-' + ni, items = n.kw.length + links(n).length;
+        var h = open[key] ? Math.max(ROW, items * KH + 10) : ROW;
+        ys.push(y + h / 2); layout.push({ b: bi, n: ni, key: key, y: y + h / 2, h: h });
+        y += h;
+      });
+      y += 14;
+      bys.push((ys[0] + ys[ys.length - 1]) / 2);
+    });
+    var ry = (bys[0] + bys[bys.length - 1]) / 2;
+    function curve(ax, ay, bx, by, c) {
+      var m = (ax + bx) / 2;
+      g.appendChild(el('path', { d: 'M' + ax + ',' + ay + 'C' + m + ',' + ay + ' ' + m + ',' + by + ' ' + bx + ',' + by, class: 'mm-ln', style: '--c:var(--mm' + c + ')' }));
+    }
+    function box_(x, y_, w, h, c, cls) { return el('rect', { x: x, y: y_ - h / 2, width: w, height: h, rx: 8, class: cls, style: '--c:var(--mm' + c + ')' }); }
+    // 连线先画
+    mm.branches.forEach(function (b, bi) {
+      curve(x0 + rootW, ry, x1, bys[bi], bi % 5);
+    });
+    layout.forEach(function (L) {
+      var bi = L.b, c = bi % 5, n = mm.branches[bi].nodes[L.n];
+      curve(x1 + bw, bys[bi], x2, L.y, c);
+      if (open[L.key]) {
+        var items = n.kw.length + links(n).length, top = L.y - (items * KH) / 2 + KH / 2;
+        for (var i = 0; i < items; i++) curve(x2 + nw, L.y, x3, top + i * KH, c);
+      }
+    });
+    // 根
+    var rh = rootLines.length * 20 + 16;
+    g.appendChild(box_(x0, ry, rootW, rh, 0, 'mm-rt'));
+    rootLines.forEach(function (l, i) {
+      g.appendChild(el('text', { x: x0 + rootW / 2, y: ry - rh / 2 + 8 + 15 + i * 20, 'text-anchor': 'middle', class: 'mm-t0' }, l));
+    });
+    // 大块
+    mm.branches.forEach(function (b, bi) {
+      var c = bi % 5, gg = el('g', { class: 'mm-bx' });
+      gg.appendChild(box_(x1, bys[bi], bw, 34, c, 'mm-br'));
+      gg.appendChild(el('text', { x: x1 + bw / 2, y: bys[bi] + 5, 'text-anchor': 'middle', class: 'mm-t1' }, b.t));
+      gg.appendChild(el('text', { x: x1 + bw / 2, y: bys[bi] + 26, 'text-anchor': 'middle', class: 'mm-t3' }, b.range));
+      g.appendChild(gg);
+    });
+    // 节点 + 要点
+    layout.forEach(function (L) {
+      var bi = L.b, c = bi % 5, n = mm.branches[bi].nodes[L.n], on = !!open[L.key];
+      var gn = el('g', { class: 'mm-nd' + (on ? ' on' : ''), style: 'cursor:pointer' });
+      gn.appendChild(box_(x2, L.y, nw, 30, c, 'mm-no'));
+      gn.appendChild(el('text', { x: x2 + nw / 2, y: L.y + 5, 'text-anchor': 'middle', class: 'mm-t2' }, n.t));
+      gn.addEventListener('click', function () { if (moved) return; open[L.key] = !open[L.key]; draw(); });
+      g.appendChild(gn);
+      if (on) {
+        var ls = links(n), items = n.kw.length + ls.length, top = L.y - (items * KH) / 2 + KH / 2;
+        n.kw.forEach(function (k, i) {
+          var w = tw(k, 12) + 16, yy = top + i * KH;
+          g.appendChild(el('rect', { x: x3, y: yy - 11, width: w, height: 22, rx: 11, class: 'mm-kw', style: '--c:var(--mm' + c + ')' }));
+          g.appendChild(el('text', { x: x3 + 8, y: yy + 4, class: 'mm-t4' }, k));
+        });
+        ls.forEach(function (l, j) {
+          var w = tw(l.t, 12) + 16, yy = top + (n.kw.length + j) * KH, gl = el('g', { style: 'cursor:pointer' });
+          gl.appendChild(el('rect', { x: x3, y: yy - 11, width: w, height: 22, rx: 11, class: 'mm-gob', style: '--c:var(--mm' + c + ')' }));
+          gl.appendChild(el('text', { x: x3 + 8, y: yy + 4, class: 'mm-t5' }, l.t));
+          gl.addEventListener('click', function () { if (!moved) mmGo(l.v); });
+          g.appendChild(gl);
+        });
+      }
+    });
+    svg.appendChild(g);
+    svg._g = g; svg._bb = { w: x3 + kw, h: y };
+    apply();
+  }
+  function apply() { if (svg._g) svg._g.setAttribute('transform', 'translate(' + T.x + ',' + T.y + ') scale(' + T.k + ')'); }
+  function fit() {
+    var W = view.clientWidth || 340, H = view.clientHeight || 460, bb = svg._bb;
+    var k = Math.min(1, (W - 16) / (bb.w * 0.62), (H - 16) / bb.h);   // 默认只摆到「要点」列之前，宽度按前三列估
+    T.k = Math.max(0.35, k); T.x = 8; T.y = 8; apply();
+  }
+  var moved = false, pts = {}, last = null;
+  function dist() { var a = Object.keys(pts).map(function (k) { return pts[k]; }); return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y); }
+  function zoomAt(cx, cy, f) {
+    var r = view.getBoundingClientRect(), px = cx - r.left, py = cy - r.top;
+    var nk = Math.max(0.25, Math.min(3, T.k * f)); f = nk / T.k;
+    T.x = px - (px - T.x) * f; T.y = py - (py - T.y) * f; T.k = nk; apply();
+  }
+  view.addEventListener('pointerdown', function (e) {
+    pts[e.pointerId] = { x: e.clientX, y: e.clientY }; last = { x: e.clientX, y: e.clientY }; moved = false;
+    if (Object.keys(pts).length === 2) view._d = dist();
+  });
+  view.addEventListener('pointermove', function (e) {
+    if (!pts[e.pointerId]) return;
+    var n = Object.keys(pts).length;
+    pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+    if (n === 2) {
+      var d = dist(); if (view._d) { var a = Object.keys(pts).map(function (k) { return pts[k]; }); zoomAt((a[0].x + a[1].x) / 2, (a[0].y + a[1].y) / 2, d / view._d); }
+      view._d = d; moved = true; return;
+    }
+    var dx = e.clientX - last.x, dy = e.clientY - last.y;
+    if (!moved && Math.hypot(dx, dy) < 4) return;
+    moved = true; T.x += dx; T.y += dy; last = { x: e.clientX, y: e.clientY }; apply();
+  });
+  function up(e) { delete pts[e.pointerId]; view._d = 0; last = { x: e.clientX, y: e.clientY }; setTimeout(function () { if (!Object.keys(pts).length) moved = false; }, 30); }
+  view.addEventListener('pointerup', up); view.addEventListener('pointercancel', up); view.addEventListener('pointerleave', up);
+  view.addEventListener('wheel', function (e) { e.preventDefault(); zoomAt(e.clientX, e.clientY, e.deltaY < 0 ? 1.12 : 1 / 1.12); }, { passive: false });
+  $('.mm-fit', box).onclick = fit;
+  draw();
+  // 容器首次可见后再适配（details 折叠时宽度为 0）
+  var tries = 0;
+  (function wait() { if (view.clientWidth > 0 || tries++ > 20) { if (!fitted) { fitted = true; fit(); } } else setTimeout(wait, 150); })();
+}
+
+function renderMindmapList(box, mm) {
   if (!mm || !mm.branches) { box.innerHTML = ''; return; }
   var html = '<div class="mm-root"><b>' + esc(mm.title) + '</b><p>' + esc(mm.intro) + '</p></div>';
   mm.branches.forEach(function (b, i) {
