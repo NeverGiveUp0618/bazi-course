@@ -57,6 +57,11 @@ const click = el => el.dispatchEvent(new window.MouseEvent('click', { bubbles: t
   ok($('#quizBody').textContent.length > 20 && /断|反馈|解|答案/.test($('#quizBody').textContent), '命例页内容按需加载');
   console.log('   all requests:', requested.join(' ')); console.log('   quiz text:', $('#quizBody').textContent.slice(0,80)); console.log('   qbody requests:', requested.filter(f => /qbody/.test(f)).join(','));
   ok(requested.filter(f => /qbody-\d+\.js/.test(f)).length === 1, '只拉了 1 个命例块');
+  window.confirm = () => true;
+  window.localStorage.setItem('bazi_course_read', '{"c1":100}'); window.localStorage.setItem('bazi_course_seen', '{"3":1}');
+  click($('[data-tab="home"]')); await wait(60);
+  click($('#clearMarks')); await wait(50);
+  ok(['bazi_course_read', 'bazi_course_seen'].every(k => Object.keys(JSON.parse(window.localStorage.getItem(k) || '{}')).length === 0), '「清除全部标记」清空已读/已学');
   click($('#btnSearch')); await wait(80);
   $('#q').value = '墓库'; $('#q').dispatchEvent(new window.Event('input', { bubbles: true })); await wait(1500);
   ok($$('#hits > *').length > 5, '搜索会补齐全部正文后返回结果：' + $$('#hits > *').length);

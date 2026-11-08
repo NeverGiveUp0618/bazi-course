@@ -506,6 +506,12 @@ function afterDoc(root, id) {
 /* ---------- 首页 ---------- */
 RENDER.home = function () {
   var c = META.counts || {};
+  var cmb = $('#clearMarks');
+  if (cmb) cmb.onclick = function () {
+    if (!window.confirm('清除全部「已读」「已学」' + (K.gap ? '「已掌握」' : '') + '标记？\n此操作不可撤销（我的笔记、阅读位置不受影响）。')) return;
+    save(K.read, {}); save(K.seen, {}); if (K.gap) save(K.gap, {});
+    RENDER.home(); toast && toast('已清除全部标记');
+  };
   $('#hCourse').textContent = c.course || 0;
   $('#hNotes').textContent = c.notes || 0;
   $('#hQuiz').textContent = c.quiz || 0;
