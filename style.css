@@ -112,7 +112,7 @@ body.entry-locked{overflow:hidden}
 }
 .topbar .act[data-set="1"]{color:var(--indigo)}
 
-main{padding:14px 14px calc(var(--tabh) + 26px)}
+main{padding:14px 14px calc(var(--tabh) + 92px + env(safe-area-inset-bottom))}
 .screen{display:none; animation:fade .18s ease}
 .screen.active{display:block}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
