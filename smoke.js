@@ -329,7 +329,9 @@ const wait = () => new Promise(r => setTimeout(r, 30));
   ok(!window.localStorage.getItem('bazi_course_srs'), '不写 SRS');
   ok(!window.localStorage.getItem('bazi_course_tag_stats'), '不写考点正确率');
   const seen = JSON.parse(window.localStorage.getItem('bazi_course_seen') || '{}');
-  ok(!!seen['21'], '同一命例停留达到门槛后才记下题号 21（线上门槛为 5 分钟）');
+  ok(!seen['21'], '停留不会自动记已学（2026-11-08 起改为手动标记）');
+  $('#seenToggle').click(); await wait();
+  ok(!!JSON.parse(window.localStorage.getItem('bazi_course_seen') || '{}')['21'], '点「标记为已学」才记下题号 21');
   ok(!!$('#qnav') && !!$('#bPrev') && !!$('#bNext'), '上一题/下一题导航出现');
   $('#bNext').click(); await wait();
   {

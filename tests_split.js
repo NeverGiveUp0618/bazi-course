@@ -44,6 +44,10 @@ const click = el => el.dispatchEvent(new window.MouseEvent('click', { bubbles: t
   click($('[data-ch="1"]')); await wait(300);
   ok($('#chapterBody').textContent.length > 1500, '点第 1 章后才加载正文，长度 ' + $('#chapterBody').textContent.length);
   ok(requested.filter(f => /body-c\d+\.js/.test(f)).length === 1, '只拉了 1 个章节文件');
+  await wait(1900);
+  ok(Object.keys(JSON.parse(window.localStorage.getItem('bazi_course_read') || '{}')).length === 0, '读章节不会自动记已读');
+  click($('#readToggle')); await wait(30);
+  ok(Object.values(JSON.parse(window.localStorage.getItem('bazi_course_read') || '{}'))[0] >= 90, '点「标记为已读」才记录');
   click($('[data-tab="notes"]')); await wait(200);
   click($('[data-nt]')); await wait(300);
   ok($('#noteBody').textContent.length > 1000, '笔记正文按需加载');
