@@ -1122,3 +1122,36 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
   #rvList,#rfList,#rvMore .rv-g[open]{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px;align-items:start}
   #rfList>.rf-g,#rvMore .rv-g[open]>summary{grid-column:1/-1}
 }
+
+/* ===== 四柱盘：五行色牌（2026-11-08 统一设计，仅样式，不动内容） ===== */
+.doc .ichart .c .a,.doc .ichart .c .b,
+.sticky-chart .c .a,.sticky-chart .c .b,
+.vchart .a,.vchart .b,
+.vpluck .c .a,.vpluck .c .b{
+  display:block; margin:2px auto 0; width:28px; height:28px; line-height:28px; border-radius:8px;
+  text-align:center; font-size:17px; font-weight:700; background:var(--bg2); box-shadow:inset 0 0 0 1px var(--line)
+}
+.doc .ichart .c .a.w-mu,.doc .ichart .c .b.w-mu,
+.sticky-chart .c .a.w-mu,.sticky-chart .c .b.w-mu,
+.vchart .a.w-mu,.vchart .b.w-mu,
+.vpluck .a.w-mu,.vpluck .b.w-mu{background:color-mix(in srgb,var(--wx-mu) 16%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wx-mu) 45%,transparent)}
+.doc .ichart .c .a.w-huo,.doc .ichart .c .b.w-huo,
+.sticky-chart .c .a.w-huo,.sticky-chart .c .b.w-huo,
+.vchart .a.w-huo,.vchart .b.w-huo,
+.vpluck .a.w-huo,.vpluck .b.w-huo{background:color-mix(in srgb,var(--wx-huo) 16%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wx-huo) 45%,transparent)}
+.doc .ichart .c .a.w-tu,.doc .ichart .c .b.w-tu,
+.sticky-chart .c .a.w-tu,.sticky-chart .c .b.w-tu,
+.vchart .a.w-tu,.vchart .b.w-tu,
+.vpluck .a.w-tu,.vpluck .b.w-tu{background:color-mix(in srgb,var(--wx-tu) 16%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wx-tu) 45%,transparent)}
+.doc .ichart .c .a.w-jin,.doc .ichart .c .b.w-jin,
+.sticky-chart .c .a.w-jin,.sticky-chart .c .b.w-jin,
+.vchart .a.w-jin,.vchart .b.w-jin,
+.vpluck .a.w-jin,.vpluck .b.w-jin{background:color-mix(in srgb,var(--wx-jin) 18%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wx-jin) 45%,transparent)}
+.doc .ichart .c .a.w-shui,.doc .ichart .c .b.w-shui,
+.sticky-chart .c .a.w-shui,.sticky-chart .c .b.w-shui,
+.vchart .a.w-shui,.vchart .b.w-shui,
+.vpluck .a.w-shui,.vpluck .b.w-shui{background:color-mix(in srgb,var(--wx-shui) 16%,transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--wx-shui) 45%,transparent)}
+.doc .ichart .c.day,.sticky-chart .c.day{background:none; box-shadow:none; outline:none}
+.vchart .c{min-width:30px}
+.vpluck .c{min-width:28px}
+.vchart .ss{margin-top:2px}
