@@ -1,9 +1,8 @@
 /* 网络优先——微信 X5 内核缓存极顽固，会无视 URL 的 ?query 按路径缓存。
    其余几个 App 都因此改成网络优先，这里保持一致。 */
-var C = 'bazi-course-v187-pad';
+var C = 'bazi-course-v188-split';
 var CORE = ['./', 'index.html', 'style.css', 'app.js',
-  'data/data-meta.js', 'data/data-course.js', 'data/data-notes.js',
-  'data/data-quiz.js', 'data/data-index.js', 'data/data-desk.js', 'data/data-vke.js', 'data/data-kt.js'];
+  'data/data-meta.js', 'data-s/data-course.js', 'data-s/data-notes.js'];
 
 self.addEventListener('install', function (e) {
   self.skipWaiting();
@@ -17,7 +16,7 @@ self.addEventListener('activate', function (e) {
 self.addEventListener('fetch', function (e) {
   if (e.request.method !== 'GET') return;
   /* cacheFirstData：data/*.js?v=<构建时间> 的 URL 一版内容永不变，缓存优先——弱网下不必等网络超时再回退 */
-  if (/\/data\/[^?]+\.js\?v=/.test(e.request.url)) {
+  if (/\/data(?:-s)?\/[^?]+\.js\?v=/.test(e.request.url)) {
     e.respondWith(caches.match(e.request).then(function (hit) {
       if (hit) return hit;
       return fetch(e.request).then(function (r) {

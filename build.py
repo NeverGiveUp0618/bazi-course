@@ -1188,6 +1188,8 @@ def main():
             print('   -', b)
         sys.exit(1)
     print('\n✓ 自检通过')
+    import split   # 线上走 data-s/（列表+按需正文）；data/ 保持完整供 smoke/audit 用
+    split.run()
 
 
 if __name__ == '__main__':

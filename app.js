@@ -142,7 +142,7 @@ function dataVer() {
   return b.replace(/\D/g, '') || '0';
 }
 var pendingLoad = {};
-function need(file, globalName) {
+function need(file, globalName, dir) {
   if (loaded[file]) return Promise.resolve(window[globalName]);
   if (pendingLoad[file]) return pendingLoad[file];
   /* ⚠️ 以前加载失败/卡住时 promise 永不返回，界面就一直停在「载入中…」。
@@ -161,7 +161,7 @@ function need(file, globalName) {
       s.onload = function () { if (done) return; done = true; clearTimeout(to); loaded[file] = 1; delete pendingLoad[file]; res(window[globalName]); };
       s.onerror = fail;
       to = setTimeout(fail, 25000);
-      s.src = 'data/' + file + '?v=' + dataVer() + (tries ? '&r=' + tries : '');
+      s.src = (dir || 'data/') + file + '?v=' + dataVer() + (tries ? '&r=' + tries : '');
       document.head.appendChild(s);
     })();
   });
@@ -182,9 +182,30 @@ setTimeout(function () {
   var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 400); };
   idle(function () { try { needCourse().catch(function () {}); needNotes().catch(function () {}); } catch (e) {} });
 }, 1200);
-var needCourse = function () { return need('data-course.js', 'DATA_COURSE'); };
-var needNotes  = function () { return need('data-notes.js', 'DATA_NOTES'); };
-var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
+var needCourse = function () { return need('data-course.js', 'DATA_COURSE', 'data-s/'); };
+var needNotes  = function () { return need('data-notes.js', 'DATA_NOTES', 'data-s/'); };
+/* 分包：列表只含 meta；正文在 data-s/body-<id>.js，题库正文按 40 题一块 qbody-<k>.js。点进去才拉。 */
+function ensureDoc(c) {
+  if (c.html) return Promise.resolve(c);
+  return need('body-' + c.id + '.js', 'DATA_BODY', 'data-s/').then(function (B) {
+    var b = B[c.id]; c.html = b.html; c.text = b.text; return c;
+  });
+}
+function ensureQ(it) {
+  if (!it.lz) return Promise.resolve(it);
+  return need('qbody-' + it.bk + '.js', 'DATA_QBODY', 'data-s/').then(function (B) {
+    var b = B[it.n]; for (var k in b) it[k] = b[k]; it.lz = 0; return it;
+  });
+}
+function ensureAllBodies(course, notes, Q) {
+  var ps = course.concat(notes).filter(function (c) { return !c.html; }).map(ensureDoc);
+  var seen = {};
+  Q.items.forEach(function (it) { if (it.lz && !seen[it.bk]) { seen[it.bk] = 1; ps.push(ensureQ(it)); } });
+  return Promise.all(ps).then(function () {
+    Q.items.forEach(function (it) { if (it.lz) { var b = window.DATA_QBODY && window.DATA_QBODY[it.n]; if (b) { for (var k in b) it[k] = b[k]; it.lz = 0; } } });
+  });
+}
+var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ', 'data-s/'); };
 // 问题清单 70KB，只有点进「四张索引表」才要，不进首屏包
 var needIndex  = function () { return need('data-index.js', 'DATA_INDEX'); };
 // 断命台 8KB，只有点进「断命台」才要
@@ -605,6 +626,7 @@ RENDER.chapter = function (n) {
   needCourse().then(function (list) {
     var c = list.filter(function (x) { return x.n === n; })[0];
     if (!c) return;
+    if (!c.html) { $('#chapterBody').innerHTML = '<div class="empty">载入中…</div>'; ensureDoc(c).then(function () { RENDER.chapter(n); }); return; }
     curDoc = c;
     $('#ttl').textContent = '第' + c.n + '章 · ' + c.title;
     $('#chapterBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + chapterMap(c) + c.html;
@@ -703,6 +725,7 @@ RENDER.note = function (n) {
   needNotes().then(function (list) {
     var c = list.filter(function (x) { return x.n === n; })[0];
     if (!c) return;
+    if (!c.html) { $('#noteBody').innerHTML = '<div class="empty">载入中…</div>'; ensureDoc(c).then(function () { RENDER.note(n); }); return; }
     curDoc = c;
     $('#ttl').textContent = c.title;
     $('#noteBody').innerHTML = '<h1>' + esc(c.title) + '</h1>' + c.html;
@@ -1794,6 +1817,7 @@ RENDER.quiz = function (n) {
   needQuiz().then(function (Q) {
     var it = Q.items.filter(function (x) { return x.n === n; })[0];
     if (!it) return;
+    if (it.lz) { $('#quizBody').innerHTML = '<div class="empty">载入中…</div>'; ensureQ(it).then(function () { RENDER.quiz(n); }); return; }
     $('#ttl').textContent = '命例 ' + (it.seq || '');
 
     var h = '<div class="card">';
@@ -2080,7 +2104,7 @@ function doSearch() {
   var kw = $('#q').value.trim();
   var box = $('#hits');
   if (kw.length < 1) { box.innerHTML = '<div class="empty">输入关键词开始搜索</div>'; return; }
-  box.innerHTML = '<div class="empty">搜索中…</div>';
+  box.innerHTML = '<div class="empty">搜索中…（首次搜索要加载全部教材与命例，稍候）</div>';
   // 空格分词：「墓库 冲开」＝两个词都要出现的地方。
   // 以前整串 indexOf，这么搜恒定 0 条。
   var terms = kw.split(/\s+/).filter(Boolean);
@@ -2088,6 +2112,8 @@ function doSearch() {
   var rest = terms.slice(1);
 
   Promise.all([needCourse(), needNotes(), needQuiz()]).then(function (r) {
+    return ensureAllBodies(r[0], r[1], r[2]).then(function () { return r; });
+  }).then(function (r) {
     var hits = [], total = 0, capped = false;
 
     // 一篇文档里的每一处命中都列出来（上限 PER_DOC），并记下是第几处，
