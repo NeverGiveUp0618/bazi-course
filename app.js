@@ -10,11 +10,14 @@ var $ = function (s, r) { return (r || document).querySelector(s); };
 var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 var META = window.DATA_META || {};
 
-/* 论命八步法入站自检：只保存在本次页面内，刷新后必须重新作答。 */
+/* 论命八步法入站自检：通过后 5 天内不再出现（2026-11-08 用户：已经记得差不多了，不用次次做）。 */
 (function initEntryGate() {
   var order = ['天元入命', '确定状态', '确定喜忌', '干支意向', '十神格局', '作用方式', '宫位大限', '大运流年'];
   var gate = $('#entryGate');
   if (!gate) return;
+  var GKEY = 'bazi_gate_ok', GDAYS = 5;
+  try { var gt = +localStorage.getItem(GKEY) || 0; if (!gt) { localStorage.setItem(GKEY, String(Date.now())); gt = Date.now(); }   /* 第一次打开：直接放行并从现在起算 5 天 */
+    if (Date.now() - gt >= 0 && Date.now() - gt < GDAYS * 864e5) { gate.hidden = true; return; } } catch (e) {}
   var card = $('.entry-gate-card', gate), opts = $('#entryGateOptions'), msg = $('#entryGateMsg');
   var progress = $('#entryGateProgress'), at = 0, locked = false;
   document.body.classList.add('entry-locked');
@@ -49,6 +52,7 @@ var META = window.DATA_META || {};
       $$('.entry-gate-step', gate)[at].classList.add('on'); at += 1;
       if (at === order.length) {
         locked = true; msg.textContent = '顺序正确，进入命理精讲'; gate.classList.add('done');
+        try { localStorage.setItem(GKEY, String(Date.now())); } catch (e) {}
         setTimeout(function () { gate.hidden = true; document.body.classList.remove('entry-locked'); }, 300);
       } else msg.textContent = '正确，请选择第 ' + (at + 1) + ' 步';
     };
