@@ -141,16 +141,47 @@ function dataVer() {
   var b = (window.DATA_META && window.DATA_META.built) || '';
   return b.replace(/\D/g, '') || '0';
 }
+var pendingLoad = {};
 function need(file, globalName) {
   if (loaded[file]) return Promise.resolve(window[globalName]);
-  return new Promise(function (res, rej) {
-    var s = document.createElement('script');
-    s.src = 'data/' + file + '?v=' + dataVer();
-    s.onload = function () { loaded[file] = 1; res(window[globalName]); };
-    s.onerror = function () { rej(new Error('加载失败 ' + file)); };
-    document.head.appendChild(s);
+  if (pendingLoad[file]) return pendingLoad[file];
+  /* ⚠️ 以前加载失败/卡住时 promise 永不返回，界面就一直停在「载入中…」。
+     现在：25 秒超时、最多试 3 次（带 &r= 换个 URL 绕开坏缓存）、同一文件只发一个请求；
+     最终失败会 reject，由下面的 unhandledrejection 统一画出「点此重试」。 */
+  pendingLoad[file] = new Promise(function (res, rej) {
+    var tries = 0;
+    (function go() {
+      var s = document.createElement('script'), done = false, to;
+      function fail() {
+        if (done) return; done = true; clearTimeout(to);
+        if (s.parentNode) s.parentNode.removeChild(s);
+        if (++tries < 3) setTimeout(go, 500 * tries);
+        else { delete pendingLoad[file]; rej(new Error('加载失败 ' + file)); }
+      }
+      s.onload = function () { if (done) return; done = true; clearTimeout(to); loaded[file] = 1; delete pendingLoad[file]; res(window[globalName]); };
+      s.onerror = fail;
+      to = setTimeout(fail, 25000);
+      s.src = 'data/' + file + '?v=' + dataVer() + (tries ? '&r=' + tries : '');
+      document.head.appendChild(s);
+    })();
   });
+  return pendingLoad[file];
 }
+window.addEventListener('unhandledrejection', function (ev) {
+  var msg = ev && ev.reason && ev.reason.message || '';
+  if (msg.indexOf('加载失败') < 0) return;
+  var box = document.querySelector('.screen.active .empty');
+  if (box) {
+    box.innerHTML = '加载失败（网络不稳或被拦截）<br><button class="btn" id="retryLoad" style="margin-top:10px">点此重试</button>';
+    var bt = document.getElementById('retryLoad');
+    if (bt) bt.onclick = function () { try { RENDER[cur.scr] && RENDER[cur.scr](cur.id); } catch (e) { location.reload(); } };
+  }
+});
+/* 首页渲染后趁空闲把课程/笔记数据悄悄预载，点「课程」「查」时基本是现成的 */
+setTimeout(function () {
+  var idle = window.requestIdleCallback || function (f) { return setTimeout(f, 400); };
+  idle(function () { try { needCourse().catch(function () {}); needNotes().catch(function () {}); } catch (e) {} });
+}, 1200);
 var needCourse = function () { return need('data-course.js', 'DATA_COURSE'); };
 var needNotes  = function () { return need('data-notes.js', 'DATA_NOTES'); };
 var needQuiz   = function () { return need('data-quiz.js', 'DATA_QUIZ'); };
