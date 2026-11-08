@@ -60,11 +60,11 @@ body{
 
 /* 每次整页进入都要重答；不写 localStorage，刷新也不会跳过。 */
 body.entry-locked{overflow:hidden}
-.entry-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:20px;
+.entry-gate{position:fixed;inset:0;z-index:9999;display:flex;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;
   background:color-mix(in srgb,var(--bg) 94%,#18252d 6%)}
 .entry-gate[hidden]{display:none}
 .entry-gate.done{opacity:0;pointer-events:none;transition:opacity .28s ease}
-.entry-gate-card{width:min(100%,520px);max-height:calc(100dvh - 40px);overflow:auto;
+.entry-gate-card{width:min(100%,520px);margin:auto;
   padding:26px 20px 22px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
 .entry-gate-kicker{text-align:center;color:var(--gold);font-size:12px;letter-spacing:3px}
 .entry-gate h2{margin:5px 0 4px;text-align:center;font:700 26px/1.35 "Songti SC","STSong",serif;color:var(--indigo)}
@@ -182,7 +182,7 @@ main{padding:14px 14px calc(var(--tabh) + 26px)}
 .hero .stat b{display:block;font-size:19px;font-weight:600}
 .hero .stat span{font-size:11px;opacity:.75}
 
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:20px}
 .mode{
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   padding:16px 8px;text-align:center;cursor:pointer;box-shadow:var(--shadow);
@@ -1155,3 +1155,5 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .vchart .c{min-width:30px}
 .vpluck .c{min-width:28px}
 .vchart .ss{margin-top:2px}
+
+.entry-gate-skip{display:block;margin:14px auto 0;padding:6px 12px;border:0;background:none;color:var(--ink3);font-size:12.5px;text-decoration:underline;cursor:pointer}

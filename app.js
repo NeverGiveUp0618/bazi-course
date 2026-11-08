@@ -35,6 +35,23 @@ var META = window.DATA_META || {};
     if (next.length > 1 && next.map(function (x) { return x.textContent; }).join('|') === old) { t = next[0]; next[0] = next[1]; next[1] = t; }
     next.forEach(function (x) { opts.appendChild(x); });
   }
+  function doReset() {
+    if (at >= order.length) return;
+    at = 0; locked = false; card.classList.remove('wrong');
+    $$('.entry-gate-step', gate).forEach(function (x) { x.classList.remove('on'); });
+    $$('.entry-gate-option', gate).forEach(function (x) { x.disabled = false; x.classList.remove('picked'); });
+    reshuffleOptions(); msg.textContent = '已重新打乱，现在请选择第 1 步';
+  }
+  /* 切回前台时若还锁着（错后 650ms 的定时器没跑）立刻解锁 */
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && locked && at < order.length && !gate.hidden) doReset(); });
+  window.addEventListener('pageshow', function () { if (locked && at < order.length && !gate.hidden) doReset(); });
+  /* 逃生口：12 秒还没过，给一个「选不了」的出口（算一次失误，间隔减半），免得被迫刷新 */
+  setTimeout(function () {
+    if (gate.hidden || at >= order.length || $('.entry-gate-skip', gate)) return;
+    var sk = document.createElement('button'); sk.type = 'button'; sk.className = 'entry-gate-skip'; sk.textContent = '选不了？点这里跳过本次（下次会更早再测）';
+    sk.onclick = function () { gsave({ t: Date.now(), d: Math.max(GMIN, Math.floor(gst.d / 2)) }); gate.hidden = true; document.body.classList.remove('entry-locked'); };
+    card.appendChild(sk);
+  }, 12000);
   order.forEach(function (_, i) {
     var s = document.createElement('i'); s.className = 'entry-gate-step';
     s.setAttribute('aria-label', '第' + (i + 1) + '步'); progress.appendChild(s);
@@ -45,12 +62,8 @@ var META = window.DATA_META || {};
       if (locked || b.disabled) return;
       if (name !== order[at]) {
         miss += 1; locked = true; card.classList.add('wrong'); msg.textContent = '顺序不对，重新从第 1 步开始';
-        setTimeout(function () {
-          at = 0; locked = false; card.classList.remove('wrong');
-          $$('.entry-gate-step', gate).forEach(function (x) { x.classList.remove('on'); });
-          $$('.entry-gate-option', gate).forEach(function (x) { x.disabled = false; x.classList.remove('picked'); });
-          reshuffleOptions(); msg.textContent = '已重新打乱，现在请选择第 1 步';
-        }, 650);
+        setTimeout(doReset, 650);
+        setTimeout(function () { if (locked && at < order.length) doReset(); }, 2500);   /* 兜底：定时器被冻结（微信切后台等）时不至于永远锁死 */
         return;
       }
       b.disabled = true; b.classList.add('picked');
