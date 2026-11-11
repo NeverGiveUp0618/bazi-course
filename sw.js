@@ -1,6 +1,6 @@
 /* 网络优先——微信 X5 内核缓存极顽固，会无视 URL 的 ?query 按路径缓存。
    其余几个 App 都因此改成网络优先，这里保持一致。 */
-var C = 'bazi-course-v191-tab5';
+var C = 'bazi-course-v192-note24';
 var CORE = ['./', 'index.html', 'style.css', 'app.js',
   'data/data-meta.js', 'data-s/data-course.js', 'data-s/data-notes.js'];
 
