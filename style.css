@@ -59,29 +59,6 @@ body{
 }
 
 /* 每次整页进入都要重答；不写 localStorage，刷新也不会跳过。 */
-body.entry-locked{overflow:hidden}
-.entry-gate{position:fixed;inset:0;z-index:9999;display:flex;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px;
-  background:color-mix(in srgb,var(--bg) 94%,#18252d 6%)}
-.entry-gate[hidden]{display:none}
-.entry-gate.done{opacity:0;pointer-events:none;transition:opacity .28s ease}
-.entry-gate-card{width:min(100%,520px);margin:auto;
-  padding:26px 20px 22px;border:1px solid var(--line);border-radius:20px;background:var(--card);box-shadow:var(--shadow)}
-.entry-gate-kicker{text-align:center;color:var(--gold);font-size:12px;letter-spacing:3px}
-.entry-gate h2{margin:5px 0 4px;text-align:center;font:700 26px/1.35 "Songti SC","STSong",serif;color:var(--indigo)}
-.entry-gate-tip{margin:0 auto 18px;max-width:390px;text-align:center;color:var(--ink2);font-size:14px;line-height:1.65}
-.entry-gate-progress{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin:0 0 16px}
-.entry-gate-step{height:7px;border-radius:8px;background:var(--bg2);border:1px solid var(--line)}
-.entry-gate-step.on{background:var(--indigo);border-color:var(--indigo)}
-.entry-gate-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.entry-gate-option{min-height:52px;padding:10px 8px;border:1px solid var(--line);border-radius:12px;
-  background:var(--bg);color:var(--ink);font-family:inherit;font-size:15px;font-weight:600;line-height:1.35;cursor:pointer}
-.entry-gate-option:active{transform:scale(.98)}
-.entry-gate-option.picked{border-color:var(--ok);background:color-mix(in srgb,var(--card) 72%,var(--ok) 28%);color:var(--ok)}
-.entry-gate-card.wrong{animation:entry-shake .3s ease}
-.entry-gate-card.wrong .entry-gate-msg{color:var(--cinnabar)}
-.entry-gate-msg{min-height:24px;margin:15px 0 0;text-align:center;color:var(--ink3);font-size:13px}
-@keyframes entry-shake{25%{transform:translateX(-7px)}50%{transform:translateX(7px)}75%{transform:translateX(-4px)}}
-@media(max-width:360px){.entry-gate-options{gap:7px}.entry-gate-option{font-size:14px;padding:8px 5px}}
 
 /* ---------- 布局骨架 ---------- */
 .topbar{
@@ -1156,4 +1133,3 @@ li.red .dbox.on{background:#dc2626;border-color:#dc2626}
 .vpluck .c{min-width:28px}
 .vchart .ss{margin-top:2px}
 
-.entry-gate-skip{display:block;margin:14px auto 0;padding:6px 12px;border:0;background:none;color:var(--ink3);font-size:12.5px;text-decoration:underline;cursor:pointer}
